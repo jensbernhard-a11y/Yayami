@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Küche · Corvallis Kitchen Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1C1C1E;
+  --ink2: #3A3A3C;
+  --mid: #6C6C70;
+  --muted: #AEAEB2;
+  --border: #D1D1D6;
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --sage: #5B8A5F;
+  --sage-bg: #EAF2EB;
+  --terra: #C0522A;
+  --terra-bg: #FAEBE4;
+  --gold: #B8860B;
+  --gold-bg: #FBF4E0;
+  --blue: #2C6FAC;
+  --blue-bg: #E3EEF8;
+  --red: #C0392B;
+  --red-bg: #FDECEA;
+  --rye: #7B5C3A;
+  --rye-bg: #F5EDE4;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+
+/* ── TOP BAR ── */
+.topbar {
+  background: var(--ink);
+  color: white;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 200;
+}
+.topbar-logo { font-family: 'Lora', serif; font-size: 20px; letter-spacing: -0.3px; }
+.topbar-logo span { color: #A8D5AB; }
+.topbar-date { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #AEAEB2; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.save-badge { font-size: 11px; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; color: #A8D5AB; }
+
+/* ── NAV ── */
+.nav {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  padding: 0 24px;
+  gap: 0;
+  position: sticky; top: 49px; z-index: 150;
+}
+.nav-btn {
+  padding: 13px 18px;
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  color: var(--mid); cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.nav-btn:hover { color: var(--ink); }
+.nav-btn.active { color: var(--sage); border-bottom-color: var(--sage); }
+
+/* ── LAYOUT ── */
+.main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+.section { display: none; }
+.section.active { display: block; }
+
+.page-title { font-family: 'Lora', serif; font-size: 24px; margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--mid); margin-bottom: 24px; line-height: 1.5; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.card-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.card-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px 18px; }
+
+/* ── GRID LAYOUTS ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media(max-width:800px) { .grid-2,.grid-3,.grid-4 { grid-template-columns: 1fr; } }
+
+/* ── STAT BOXES ── */
+.stat-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--mid); font-family: 'IBM Plex Mono', monospace; margin-bottom: 6px; }
+.stat-val { font-family: 'Lora', serif; font-size: 28px; line-height: 1; }
+.stat-sub { font-size: 12px; color: var(--mid); margin-top: 4px; }
+
+/* ── TAGS ── */
+.tag { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; }
+.tag-veg { background: var(--sage-bg); color: var(--sage); }
+.tag-meat { background: var(--terra-bg); color: var(--terra); }
+.tag-fish { background: var(--blue-bg); color: var(--blue); }
+.tag-low { background: var(--red-bg); color: var(--red); }
+.tag-ok { background: var(--sage-bg); color: var(--sage); }
+.tag-warn { background: var(--gold-bg); color: var(--gold); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; border: none;
+  font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-primary { background: var(--sage); color: white; }
+.btn-primary:hover { background: #4a7a4e; }
+.btn-secondary { background: var(--bg); color: var(--ink); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--red-bg); color: var(--red); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 6px 8px; }
+
+/* ── INPUTS ── */
+.input {
+  width: 100%; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: 'IBM Plex Sans', sans-serif; font-size: 13px;
+  background: var(--card); color: var(--ink);
+  transition: border 0.15s;
+}
+.input:focus { outline: none; border-color: var(--sage); }
+select.input { cursor: pointer; }
+
+/* ── PANTRY ── */
+.pantry-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-btn {
+  padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--card); font-size: 12px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif;
+  transition: all 0.15s;
+}
+.filter-btn.active { background: var(--ink); color: white; border-color: var(--ink); }
+
+.pantry-table { width: 100%; border-collapse: collapse; }
+.pantry-table th {
+  text-align: left; padding: 8px 12px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--mid); font-family: 'IBM Plex Mono', monospace;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.pantry-table td { padding: 10px 12px; border-bottom: 1px solid var(--bg); font-size: 13px; vertical-align: middle; }
+.pantry-table tr:hover td { background: var(--bg); }
+.pantry-table tr.low-stock td { background: #fff9f8; }
+
+.qty-control { display: flex; align-items: center; gap: 6px; }
+.qty-btn {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--card); cursor: pointer; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; color: var(--ink);
+}
+.qty-btn:hover { background: var(--sage); color: white; border-color: var(--sage); }
+.qty-display {
+  min-width: 60px; text-align: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500;
+}
+.qty-display.low { color: var(--red); }
+.qty-display.ok { color: var(--sage); }
+
+.stock-bar { height: 4px; border-radius: 2px; background: var(--bg); overflow: hidden; width: 60px; }
+.stock-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+/* ── MEAL PLAN ── */
+.week-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.week-label { font-family: 'Lora', serif; font-size: 18px; }
+
+.day-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.day-head {
+  display: grid; grid-template-columns: 110px 1fr 1fr 1fr auto;
+  gap: 8px; padding: 12px 16px;
+  align-items: center; cursor: pointer;
+  transition: background 0.15s;
+}
+.day-head:hover { background: var(--bg); }
+.day-label { font-weight: 600; font-size: 14px; }
+.meal-preview { font-size: 12px; color: var(--mid); }
+.meal-preview strong { color: var(--ink); font-size: 11px; display: block; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; font-family: 'IBM Plex Mono', monospace; }
+.day-toggle { color: var(--mid); transition: transform 0.2s; font-size: 12px; }
+.day-row.open .day-toggle { transform: rotate(180deg); }
+
+.day-detail { display: none; padding: 0 16px 16px; border-top: 1px solid var(--bg); }
+.day-row.open .day-detail { display: block; }
+
+.meal-block {
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--border);
+  display: grid; grid-template-columns: 80px 1fr auto;
+  gap: 12px; align-items: start;
+}
+.meal-block:last-child { border-bottom: none; }
+.meal-type-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding-top: 3px; }
+.meal-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+.meal-desc { font-size: 12px; color: var(--mid); line-height: 1.5; }
+.meal-protein { font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-align: right; }
+.meal-protein .total { font-size: 15px; font-weight: 600; }
+.meal-notes { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.meal-note { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.note-left { background: var(--blue-bg); color: var(--blue); }
+.note-veg { background: var(--sage-bg); color: var(--sage); }
+.note-cook { background: var(--gold-bg); color: var(--gold); }
+
+.cook-btn {
+  margin-top: 10px; width: 100%;
+  background: var(--sage-bg); color: var(--sage);
+  border: 1px solid #c5ddc7; border-radius: 8px;
+  padding: 8px; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+.cook-btn:hover { background: var(--sage); color: white; }
+.cook-btn.cooked { background: var(--ink); color: white; border-color: var(--ink); }
+
+/* ── SHOPPING ── */
+.shop-controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+
+.shop-section { margin-bottom: 20px; }
+.shop-section-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  background: var(--ink); color: white;
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-weight: 600; font-size: 13px;
+}
+.shop-section-store {
+  margin-left: auto; font-size: 11px;
+  background: rgba(255,255,255,0.15); padding: 2px 10px; border-radius: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.shop-items-list {
+  background: var(--card);
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.shop-item {
+  display: grid; grid-template-columns: 32px 1fr auto auto;
+  align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid var(--bg);
+  transition: background 0.1s;
+}
+.shop-item:last-child { border-bottom: none; }
+.shop-item.checked { opacity: 0.5; }
+.shop-item.checked .shop-item-name { text-decoration: line-through; color: var(--muted); }
+.shop-check {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--border); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.shop-check.done { background: var(--sage); border-color: var(--sage); color: white; font-size: 11px; }
+.shop-item-name { font-size: 13px; }
+.shop-item-qty { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--mid); white-space: nowrap; }
+.shop-item-note { font-size: 11px; color: var(--terra); font-style: italic; }
+.shop-item-auto { font-size: 10px; background: var(--gold-bg); color: var(--gold); padding: 1px 6px; border-radius: 10px; font-family: 'IBM Plex Mono', monospace; }
+
+/* ── PROTEIN TRACKER ── */
+.protein-header {
+  background: linear-gradient(135deg, #2C3E50, #3D5A6E);
+  color: white; border-radius: var(--radius);
+  padding: 20px 24px; margin-bottom: 20px;
+}
+.protein-header h3 { font-family: 'Lora', serif; font-size: 20px; margin-bottom: 4px; }
+.protein-header p { font-size: 13px; opacity: 0.7; }
+
+.protein-day { margin-bottom: 16px; }
+.protein-day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.protein-day-label { font-weight: 600; font-size: 14px; }
+.protein-day-total { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+.protein-bar-wrap { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; margin-bottom: 4px; }
+.protein-bar { height: 100%; border-radius: 5px; transition: width 0.5s ease; }
+.protein-bar.low { background: var(--red); }
+.protein-bar.mid { background: var(--gold); }
+.protein-bar.good { background: var(--sage); }
+.protein-sources { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.protein-source { font-size: 11px; background: var(--bg); padding: 2px 8px; border-radius: 10px; color: var(--mid); cursor: pointer; border: 1px solid var(--border); transition: all 0.15s; }
+.protein-source:hover { background: var(--sage-bg); border-color: var(--sage); color: var(--sage); }
+.protein-source.added { background: var(--sage-bg); border-color: var(--sage); color: var(--sage); }
+
+.protein-table { width: 100%; border-collapse: collapse; }
+.protein-table th { text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--mid); font-family: 'IBM Plex Mono', monospace; border-bottom: 1px solid var(--border); background: var(--bg); }
+.protein-table td { padding: 9px 12px; border-bottom: 1px solid var(--bg); font-size: 13px; }
+.protein-table td:last-child { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--sage); }
+
+/* ── SCHEDULE ── */
+.schedule-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+@media(max-width:800px) { .schedule-grid { grid-template-columns: 1fr 1fr; } }
+.sched-day { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.sched-day-header { padding: 8px 12px; background: var(--ink); color: white; font-size: 12px; font-weight: 600; }
+.sched-day-header.today { background: var(--sage); }
+.sched-tasks { padding: 8px; }
+.sched-task {
+  font-size: 11px; padding: 5px 8px; border-radius: 6px;
+  margin-bottom: 5px; line-height: 1.4; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.15s;
+}
+.sched-task:last-child { margin-bottom: 0; }
+.sched-task.bread { background: var(--rye-bg); color: var(--rye); border-color: #e8d5c4; }
+.sched-task.yoghurt { background: var(--blue-bg); color: var(--blue); }
+.sched-task.shop { background: var(--gold-bg); color: var(--gold); }
+.sched-task.cook { background: var(--sage-bg); color: var(--sage); }
+.sched-task.prep { background: var(--terra-bg); color: var(--terra); }
+.sched-task.done { opacity: 0.4; text-decoration: line-through; }
+.sched-task-time { font-family: 'IBM Plex Mono', monospace; font-size: 10px; opacity: 0.7; display: block; }
+
+/* ── FRIDGE ── */
+.fridge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.fridge-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  cursor: pointer; transition: all 0.15s;
+  position: relative;
+}
+.fridge-item:hover { border-color: var(--sage); }
+.fridge-item.leftover { border-left: 3px solid var(--terra); }
+.fridge-item.expiring { border-left: 3px solid var(--gold); }
+.fridge-item-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.fridge-item-qty { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--mid); }
+.fridge-item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.fridge-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 10px; padding: 1px 6px; border-radius: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.badge-left { background: var(--blue-bg); color: var(--blue); }
+.badge-exp { background: var(--gold-bg); color: var(--gold); }
+
+/* ── BREAD GUIDE ── */
+.bread-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.bread-tab {
+  padding: 7px 16px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--card); font-size: 13px; cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+  transition: all 0.15s;
+}
+.bread-tab.active { background: var(--rye); color: white; border-color: var(--rye); }
+
+.bread-recipe { display: none; }
+.bread-recipe.active { display: block; }
+
+.recipe-meta-row { display: flex; gap: 20px; flex-wrap: wrap; margin: 12px 0 16px; }
+.rmeta { }
+.rmeta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+.rmeta-val { font-size: 14px; font-weight: 600; color: var(--ink); }
+
+.recipe-steps-list { }
+.rstep {
+  display: flex; gap: 14px; padding: 12px 0;
+  border-bottom: 1px solid var(--bg); align-items: start;
+}
+.rstep:last-child { border-bottom: none; }
+.rstep-num {
+  flex-shrink: 0; width: 28px; height: 28px;
+  background: var(--rye); color: white; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.rstep-content { flex: 1; }
+.rstep-title { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+.rstep-desc { font-size: 13px; color: var(--mid); line-height: 1.6; }
+.rstep-tip {
+  margin-top: 6px; font-size: 12px;
+  background: var(--gold-bg); color: var(--gold);
+  padding: 4px 10px; border-radius: 6px; display: inline-block;
+}
+.rstep-timer {
+  margin-top: 6px; font-size: 12px;
+  background: var(--blue-bg); color: var(--blue);
+  padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ── ADD ITEM MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 500;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card); border-radius: 14px;
+  padding: 24px; width: 380px; max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.modal h3 { font-family: 'Lora', serif; font-size: 18px; margin-bottom: 16px; }
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 12px; font-weight: 500; margin-bottom: 5px; display: block; color: var(--mid); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+/* ── NOTIFICATION TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: white;
+  padding: 10px 20px; border-radius: 40px;
+  font-size: 13px; z-index: 600;
+  opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media print {
+  .topbar, .nav, .toast { display: none; }
+  .section { display: block !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">Küche<span>·</span>Corvallis</div>
+  <div class="topbar-right">
+    <div class="save-badge" id="save-badge">✓ Saved</div>
+    <div class="topbar-date" id="topbar-date"></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showSection('dashboard')">Dashboard</button>
+  <button class="nav-btn" onclick="showSection('mealplan')">Meal Plan</button>
+  <button class="nav-btn" onclick="showSection('pantry')">Pantry</button>
+  <button class="nav-btn" onclick="showSection('fridge')">Fridge & Leftovers</button>
+  <button class="nav-btn" onclick="showSection('shopping')">Shopping List</button>
+  <button class="nav-btn" onclick="showSection('protein')">Maxi Protein</button>
+  <button class="nav-btn" onclick="showSection('ferments')">Ferments</button>
+  <button class="nav-btn" onclick="showSection('schedule')">Schedule</button>
+  <button class="nav-btn" onclick="showSection('bread')">Bread Guide</button>
+</nav>
+
+<div class="main">
+
+<!-- ═══════════════════════════════════════════
+     DASHBOARD
+═══════════════════════════════════════════ -->
+<div class="section active" id="dashboard">
+  <h1 class="page-title">Good morning, Jens.</h1>
+  <p class="page-sub">Your kitchen at a glance — Corvallis, Oregon · <span id="dash-date"></span></p>
+
+  <div class="grid-4" style="margin-bottom:20px;">
+    <div class="stat-box">
+      <div class="stat-label">Tonight's Dinner</div>
+      <div class="stat-val" style="font-size:18px;" id="dash-dinner">—</div>
+      <div class="stat-sub" id="dash-dinner-sub"></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Maxi Protein Today</div>
+      <div class="stat-val" id="dash-protein" style="color:var(--red);">—g</div>
+      <div class="stat-sub">Target: 80g</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Shopping Needed</div>
+      <div class="stat-val" id="dash-shop-count" style="color:var(--gold);">—</div>
+      <div class="stat-sub">items below threshold</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Fridge Leftovers</div>
+      <div class="stat-val" id="dash-leftovers" style="color:var(--blue);">—</div>
+      <div class="stat-sub">items to use up</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⏰ Today's Kitchen Tasks</div>
+      </div>
+      <div class="card-body" id="dash-tasks" style="font-size:13px; line-height:2;">
+        Loading...
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚠️ Low Stock Alert</div>
+        <button class="btn btn-sm btn-primary" onclick="showSection('shopping'); document.querySelectorAll('.nav-btn')[4].classList.add('active');">View Shopping List</button>
+      </div>
+      <div class="card-body" id="dash-low-stock" style="font-size:13px; line-height:2;">
+        Loading...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MEAL PLAN
+═══════════════════════════════════════════ -->
+<div class="section" id="mealplan">
+  <h1 class="page-title">Weekly Meal Plan</h1>
+  <p class="page-sub">Click any day to expand. Mark meals as cooked to auto-deduct pantry ingredients and log leftovers.</p>
+
+  <div id="meal-plan-container"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PANTRY
+═══════════════════════════════════════════ -->
+<div class="section" id="pantry">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+    <h1 class="page-title">Pantry Inventory</h1>
+    <button class="btn btn-primary" onclick="openAddPantry()">+ Add Item</button>
+  </div>
+  <p class="page-sub">Track quantities. Items below minimum threshold auto-appear on the shopping list.</p>
+
+  <div class="pantry-filters">
+    <button class="filter-btn active" onclick="filterPantry('all', this)">All</button>
+    <button class="filter-btn" onclick="filterPantry('grains', this)">Grains & Legumes</button>
+    <button class="filter-btn" onclick="filterPantry('dairy', this)">Dairy</button>
+    <button class="filter-btn" onclick="filterPantry('protein', this)">Protein</button>
+    <button class="filter-btn" onclick="filterPantry('produce', this)">Produce</button>
+    <button class="filter-btn" onclick="filterPantry('pantry', this)">Pantry</button>
+    <button class="filter-btn" onclick="filterPantry('baking', this)">Baking</button>
+  </div>
+
+  <div class="card">
+    <table class="pantry-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Category</th>
+          <th>Quantity</th>
+          <th>Min.</th>
+          <th>Status</th>
+          <th>Store</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="pantry-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     FRIDGE & LEFTOVERS
+═══════════════════════════════════════════ -->
+<div class="section" id="fridge">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+    <h1 class="page-title">Fridge & Leftovers</h1>
+    <button class="btn btn-primary" onclick="openAddFridge()">+ Add Item</button>
+  </div>
+  <p class="page-sub">Log what's in the fridge. Leftovers from last night are highlighted. Items expiring soon are flagged.</p>
+
+  <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+    <button class="filter-btn active" onclick="filterFridge('all',this)">All</button>
+    <button class="filter-btn" onclick="filterFridge('leftover',this)">Leftovers</button>
+    <button class="filter-btn" onclick="filterFridge('expiring',this)">Use Soon</button>
+    <button class="filter-btn" onclick="filterFridge('fresh',this)">Fresh</button>
+  </div>
+
+  <div class="fridge-grid" id="fridge-grid"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SHOPPING LIST
+═══════════════════════════════════════════ -->
+<div class="section" id="shopping">
+  <h1 class="page-title">Shopping List</h1>
+  <p class="page-sub">Auto-generated from pantry thresholds + meal plan needs. Check items off as you shop. Organised by store.</p>
+
+  <div class="shop-controls">
+    <button class="btn btn-primary" onclick="regenerateShopping()">↻ Regenerate from Pantry</button>
+    <button class="btn btn-secondary" onclick="clearChecked()">Clear Checked</button>
+    <button class="btn btn-secondary" onclick="addShopItem()">+ Add Manual Item</button>
+    <button class="btn btn-secondary" onclick="printShopping()">🖨 Print</button>
+  </div>
+
+  <div id="shopping-container"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PROTEIN TRACKER
+═══════════════════════════════════════════ -->
+<div class="section" id="protein">
+  <h1 class="page-title">Maxi's Protein Tracker</h1>
+  <p class="page-sub">Maximilian needs 75–90g protein/day. At 60kg, 16 years old, vegetarian. Track daily intake and see where the gaps are.</p>
+
+  <div class="protein-header">
+    <h3>Why this matters</h3>
+    <p>16 years of chronically low protein has real effects on muscle, cognition, and immune function. One year of consistent 75–90g/day can genuinely change his physical trajectory. You control the kitchen — this is your lever.</p>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-header"><div class="card-title">📊 This Week</div></div>
+      <div class="card-body" id="protein-week-bars"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔑 Best Protein Sources for Maxi</div></div>
+      <div class="card-body">
+        <table class="protein-table">
+          <thead><tr><th>Food</th><th>Serving</th><th>Protein</th><th>Cost</th></tr></thead>
+          <tbody>
+            <tr><td>🌿 Hemp seeds</td><td>3 tbsp</td><td>10g</td><td>~$0.30</td></tr>
+            <tr><td>🫘 Tempeh</td><td>100g</td><td>19g</td><td>~$0.80</td></tr>
+            <tr><td>🥚 Eggs (2)</td><td>2 large</td><td>12g</td><td>~$0.55</td></tr>
+            <tr><td>🫘 Firm tofu</td><td>150g</td><td>15g</td><td>~$0.60</td></tr>
+            <tr><td>🟤 Red lentils</td><td>150g cooked</td><td>13g</td><td>~$0.20</td></tr>
+            <tr><td>🫘 Chickpeas</td><td>150g cooked</td><td>11g</td><td>~$0.15</td></tr>
+            <tr><td>🟢 Edamame</td><td>100g</td><td>11g</td><td>~$0.40</td></tr>
+            <tr><td>🥛 Greek yoghurt</td><td>150g</td><td>15g</td><td>~$0.50</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📅 Daily Log — Click to add/remove protein sources</div>
+      <button class="btn btn-sm btn-secondary" onclick="resetProteinWeek()">Reset Week</button>
+    </div>
+    <div class="card-body" id="protein-daily-log"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     FERMENTS
+═══════════════════════════════════════════ -->
+<div class="section" id="ferments">
+  <h1 class="page-title">Ferments</h1>
+  <p class="page-sub">Four live cultures to maintain: Kefir (ongoing), Skyr, Greek Yoghurt, and Sourdough Starter. Each has its own rhythm. Track batches, log when you started, and never run out again.</p>
+
+  <!-- FERMENT STATUS CARDS -->
+  <div class="grid-4" style="margin-bottom:24px;" id="ferment-status-grid"></div>
+
+  <!-- TABS -->
+  <div class="bread-tabs" style="margin-bottom:16px;">
+    <button class="bread-tab active" onclick="showFerment('kefir',this)">🥛 Kefir</button>
+    <button class="bread-tab" onclick="showFerment('skyr',this)">🫙 Skyr</button>
+    <button class="bread-tab" onclick="showFerment('greek',this)">🥄 Greek Yoghurt</button>
+    <button class="bread-tab" onclick="showFerment('starter',this)">🌾 Sourdough Starter</button>
+  </div>
+
+  <!-- KEFIR -->
+  <div class="bread-recipe active" id="ferment-kefir">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🥛 Kefir — Continuous Culture</div>
+        <span class="tag tag-ok">Ongoing · Never starts from scratch</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.6;">
+          Kefir is the easiest ferment once you understand one rule: <strong style="color:var(--ink);">control the grain quantity, not the process.</strong> Keep 2–3 tablespoons of grains fermenting 1 litre of milk. Everything else follows. Best dairy option for Maxi — 70–80% of lactose is broken down during fermentation.
+        </p>
+
+        <div style="background:var(--ink);color:white;border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;font-size:13px;line-height:1.8;">
+          <strong style="color:#A8D5AB;">The grain management rule:</strong> Your active colony = 2–3 tbsp. No more. When grains exceed this, freeze or dry the excess immediately — do not let them accumulate. This is the only thing that went wrong last time.
+        </div>
+
+        <div class="recipe-meta-row">
+          <div class="rmeta"><div class="rmeta-label">Active grains needed</div><div class="rmeta-val">2–3 tbsp</div></div>
+          <div class="rmeta"><div class="rmeta-label">Milk per batch</div><div class="rmeta-val">1 litre</div></div>
+          <div class="rmeta"><div class="rmeta-label">Ferment time</div><div class="rmeta-val">24 hrs room temp</div></div>
+          <div class="rmeta"><div class="rmeta-label">Yield</div><div class="rmeta-val">~950ml kefir</div></div>
+          <div class="rmeta"><div class="rmeta-label">For Maxi</div><div class="rmeta-val">Low lactose ✓</div></div>
+        </div>
+
+        <div class="recipe-steps-list">
+          <div class="rstep">
+            <div class="rstep-num">1</div>
+            <div class="rstep-content">
+              <div class="rstep-title">The active cycle (every 2 days)</div>
+              <div class="rstep-desc">Pour 1 litre whole milk into a clean 1.5L glass jar. Add 2–3 tbsp kefir grains. Cover with a cloth or paper towel secured with a rubber band — not a sealed lid (CO2 needs to escape). Leave at room temperature (18–24°C) for 24 hours. The milk will thicken, smell pleasantly sour, and may separate slightly. Strain through a plastic sieve (never metal — it damages grains) into a drinking jar. The grains stay in the sieve — put them straight back into the jar with fresh milk.</div>
+              <div class="rstep-timer">⏱ 24 hrs fermentation</div>
+              <div class="rstep-tip">💡 Warmer kitchen (24°C+) = faster, thinner, more sour kefir in 18–20 hrs. Cooler (18°C) = 26–28 hrs, thicker, milder. Adjust to taste.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">2</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Fridge rest cycle (when you need a break)</div>
+              <div class="rstep-desc">Place grains in a jar, cover with fresh milk, seal with a lid, refrigerate. Feed once a week — pour off the milk (use it in bread dough or pancakes, it's mildly fermented), add fresh milk, back in fridge. Grains go dormant and barely grow. When you want active kefir again, take out of fridge, put in fresh milk at room temp — back to full activity within one cycle (24 hrs).</div>
+              <div class="rstep-tip">💡 This is your solution to the "too much kefir" problem. Two weeks in Corvallis, busy with school runs — grains go in the fridge. Zero stress.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">3</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Excess grain management — do this monthly</div>
+              <div class="rstep-desc">Once a month, measure your grains. If they exceed 4 tbsp, remove the excess immediately. Three options: (1) Blend into a smoothie — nutritious, undetectable. (2) Freeze: rinse grains in non-chlorinated water, pat dry, coat lightly in milk powder, freeze in a zip bag — viable for 3–6 months. (3) Dry: spread on baking paper, leave 2–3 days at room temp until hard and yellowish, store in a sealed jar — your permanent backup colony.</div>
+              <div class="rstep-tip">💡 Keep one frozen backup batch always. If your active grains ever die (rare but possible), you revive from frozen within 3–4 days.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">4</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Second fermentation — thicker, less sour, more fizzy</div>
+              <div class="rstep-desc">After straining, seal the finished kefir in a bottle and leave at room temperature another 4–8 hours before refrigerating. CO2 builds up, the kefir gets slightly fizzy, tangier, and thicker — more like drinking yoghurt. This is optional but makes it significantly more palatable for people (like Caleb) who find plain kefir too sour. Then refrigerate — keeps 1 week.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOG -->
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <strong style="font-size:14px;">Batch Log</strong>
+            <button class="btn btn-sm btn-primary" onclick="logFerment('kefir')">+ Log Batch</button>
+          </div>
+          <div id="kefir-log" style="font-size:13px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SKYR -->
+  <div class="bread-recipe" id="ferment-skyr">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🫙 Skyr — Strained Icelandic Yoghurt</div>
+        <span class="tag tag-veg">Very high protein · Thick · Mild</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.6;">
+          Skyr is essentially yoghurt that has been strained until almost all the whey is removed — leaving a thick, creamy, very high-protein product (15–17g per 150g serving vs ~8g for regular yoghurt). Store-bought skyr costs $6–8 per 500g. Your homemade version costs about $1.20 for the same amount. Save the whey — it goes into bread dough.
+        </p>
+        <div class="recipe-meta-row">
+          <div class="rmeta"><div class="rmeta-label">Milk needed</div><div class="rmeta-val">2 litres</div></div>
+          <div class="rmeta"><div class="rmeta-label">Yield after straining</div><div class="rmeta-val">~700–800g skyr</div></div>
+          <div class="rmeta"><div class="rmeta-label">Protein per 150g</div><div class="rmeta-val">~15–17g</div></div>
+          <div class="rmeta"><div class="rmeta-label">Cost</div><div class="rmeta-val">~$1.20 total</div></div>
+          <div class="rmeta"><div class="rmeta-label">Keeps</div><div class="rmeta-val">7–10 days</div></div>
+        </div>
+        <div class="recipe-steps-list">
+          <div class="rstep">
+            <div class="rstep-num">1</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Heat milk (Friday evening)</div>
+              <div class="rstep-desc">Pour 2 litres whole milk into a heavy pot. Heat slowly to 85°C (185°F), stirring constantly to prevent scorching on the bottom. Hold at 85°C for 5 minutes — this denatures the whey proteins and gives skyr its characteristically thick, smooth texture rather than the looser texture of regular yoghurt. Remove from heat.</div>
+              <div class="rstep-tip">💡 Use a thermometer. 85°C is significantly hotter than yoghurt's 43°C — it's a genuine heat treatment, not just warming.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">2</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Cool to 43°C and inoculate</div>
+              <div class="rstep-desc">Let the milk cool to exactly 43°C — this takes 30–45 minutes. Whisk in 4 tbsp of your previous skyr batch (or plain full-fat yoghurt as starter for the first batch). The cultures are killed above 46°C, so do not rush this step. Pour into clean glass jars.</div>
+              <div class="rstep-timer">⏱ 30–45 min cooling</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">3</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Incubate 8–10 hours</div>
+              <div class="rstep-desc">Wrap jars in a thick towel and place in your oven with only the light on (typically 28–32°C). Or use the Instant Pot yoghurt setting if yours has one. Leave completely undisturbed for 8–10 hours. The result will be a loose, wobbly yoghurt-like set. This is correct — straining will transform it.</div>
+              <div class="rstep-timer">⏱ 8–10 hrs overnight</div>
+              <div class="rstep-tip">💡 Do not open the oven or disturb the jars during incubation. Temperature fluctuation prevents proper setting.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">4</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Strain (Saturday morning) — this is what makes it skyr</div>
+              <div class="rstep-desc">Line a colander with cheesecloth or a clean cotton cloth. Pour in the set yoghurt. Place over a bowl and refrigerate. Strain 4–6 hours for thick Greek-style. Strain 8–12 hours for true skyr texture — very thick, almost spreadable, very high protein. The liquid that drains off is whey: save every drop in a jar. Use it in bread dough instead of water, in pancake batter, in oatmeal, or drink it straight (high in protein and B vitamins).</div>
+              <div class="rstep-timer">⏱ 4–12 hrs straining</div>
+              <div class="rstep-tip">💡 The longer you strain, the thicker and more protein-dense the result. For Maxi's protein goals, strain the full 12 hours.</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <strong style="font-size:14px;">Batch Log</strong>
+            <button class="btn btn-sm btn-primary" onclick="logFerment('skyr')">+ Log Batch</button>
+          </div>
+          <div id="skyr-log" style="font-size:13px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GREEK YOGHURT -->
+  <div class="bread-recipe" id="ferment-greek">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🥄 Greek Yoghurt — Strained but Lighter than Skyr</div>
+        <span class="tag tag-veg">Creamier · Less sour · Versatile</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.6;">
+          Greek yoghurt is the same process as skyr but strained for less time — 2–4 hours instead of 8–12. The result is creamier, less dense, slightly less sour. Better for raita, tzatziki, as a sour cream substitute, or for anyone who finds skyr too thick. Keep both: use skyr for breakfast and protein, Greek yoghurt for cooking and sauces.
+        </p>
+        <div class="recipe-meta-row">
+          <div class="rmeta"><div class="rmeta-label">Milk needed</div><div class="rmeta-val">1.5 litres</div></div>
+          <div class="rmeta"><div class="rmeta-label">Yield</div><div class="rmeta-val">~600–700g</div></div>
+          <div class="rmeta"><div class="rmeta-label">Protein per 150g</div><div class="rmeta-val">~12–14g</div></div>
+          <div class="rmeta"><div class="rmeta-label">Cost</div><div class="rmeta-val">~$0.90 total</div></div>
+          <div class="rmeta"><div class="rmeta-label">Keeps</div><div class="rmeta-val">10–14 days</div></div>
+        </div>
+        <div class="recipe-steps-list">
+          <div class="rstep">
+            <div class="rstep-num">1</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Same process as Skyr — steps 1 through 3 are identical</div>
+              <div class="rstep-desc">Heat 1.5L milk to 85°C, hold 5 min. Cool to 43°C. Whisk in 3 tbsp starter (previous Greek yoghurt batch, or skyr, or plain yoghurt). Pour into jars. Incubate 8–10 hours wrapped in a towel in the oven with the light on.</div>
+              <div class="rstep-timer">⏱ 8–10 hrs overnight</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">2</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Strain 2–4 hours only — stop here for Greek style</div>
+              <div class="rstep-desc">Line a colander with cheesecloth, pour in the set yoghurt, refrigerate. Check after 2 hours — it should be noticeably thicker but still creamy and spoonable, not firm. Stop straining when it reaches your preferred consistency. 2 hours = light Greek style. 4 hours = thick, almost like sour cream. Beyond 4 hours you're heading into skyr territory.</div>
+              <div class="rstep-timer">⏱ 2–4 hrs straining</div>
+              <div class="rstep-tip">💡 Greek yoghurt is your cooking yoghurt. It won't split in hot sauces the way thin yoghurt does. Use it in the biryani raita, in marinades, as a sour cream substitute on the stew, stirred into dal for richness.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">3</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Differentiate your two strains</div>
+              <div class="rstep-desc">Label your jars clearly — skyr vs Greek yoghurt. They look identical but behave differently in recipes. Keep the skyr for eating straight with honey/granola/fruit and for Maxi's protein. Keep the Greek yoghurt for cooking, raita, tzatziki, and spreading on bread. You can make both from the same Friday-night incubation batch — just split the yoghurt into two portions and strain each for different durations.</div>
+              <div class="rstep-tip">💡 One Friday evening batch of 3.5L milk = both your skyr and Greek yoghurt for the week. Strain half for 12 hrs (skyr), half for 3 hrs (Greek). Efficient.</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <strong style="font-size:14px;">Batch Log</strong>
+            <button class="btn btn-sm btn-primary" onclick="logFerment('greek')">+ Log Batch</button>
+          </div>
+          <div id="greek-log" style="font-size:13px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOURDOUGH STARTER -->
+  <div class="bread-recipe" id="ferment-starter">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🌾 Sourdough Starter — Your Perpetual Culture</div>
+        <span class="tag" style="background:var(--rye-bg);color:var(--rye);">Keep 20–30g always · Never use it all</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.6;">
+          You never start from scratch again. You always keep 20–30g in a jar — that's your permanent culture. Before every bread bake, you feed it to build it up to the quantity the recipe needs, use most of it, and leave 20–30g behind. That remainder is your next starter. Simple, permanent, costs almost nothing to maintain.
+        </p>
+        <div class="recipe-meta-row">
+          <div class="rmeta"><div class="rmeta-label">Keep always</div><div class="rmeta-val">20–30g</div></div>
+          <div class="rmeta"><div class="rmeta-label">Jar size</div><div class="rmeta-val">500ml glass</div></div>
+          <div class="rmeta"><div class="rmeta-label">Weekly feed</div><div class="rmeta-val">50g flour + 50g water</div></div>
+          <div class="rmeta"><div class="rmeta-label">Fridge rest</div><div class="rmeta-val">Feed once/week</div></div>
+        </div>
+        <div class="recipe-steps-list">
+          <div class="rstep">
+            <div class="rstep-num">1</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Baking week rhythm</div>
+              <div class="rstep-desc">Friday evening: take the jar out of the fridge. Discard or use everything except 20–30g. Add 100g bread flour + 100g water at 25°C. Stir vigorously, cover loosely, leave at room temperature overnight. By Saturday morning it should have doubled or tripled, smell pleasantly sour-yeasty, and be domed on top. Use 200g for the bread recipe. The remaining 20–30g goes back in the fridge immediately after you've mixed the dough.</div>
+              <div class="rstep-timer">⏱ 8–12 hrs feed cycle</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">2</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Non-baking weeks — fridge maintenance</div>
+              <div class="rstep-desc">Leave it in the fridge. Feed once a week: discard all but 20–30g, add 50g flour + 50g water, stir, back in fridge. That's it. The cold slows the culture to near-dormancy. A well-maintained starter kept this way will last indefinitely — some bakeries have starters decades old.</div>
+              <div class="rstep-tip">💡 If you forget for 2 weeks and it develops a grey liquid layer on top — that's "hooch" (alcohol from over-fermentation). Pour it off, discard all but 20g, feed twice 12 hours apart at room temperature, and it's back to full strength.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">3</div>
+            <div class="rstep-content">
+              <div class="rstep-title">The discard — don't waste it</div>
+              <div class="rstep-desc">The portion you remove before feeding (the "discard") is not garbage. It's mildly active starter with a pleasant sour flavour. Use it in: pancake batter (replace half the flour), roti dough (adds flavour and slight chew), flatbread, crackers, or oatmeal. Keep a second "discard jar" in the fridge and use it during the week for weekday pancakes or quick flatbreads. Zero waste.</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <strong style="font-size:14px;">Feed Log</strong>
+            <button class="btn btn-sm btn-primary" onclick="logFerment('starter')">+ Log Feed</button>
+          </div>
+          <div id="starter-log" style="font-size:13px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCHEDULE
+═══════════════════════════════════════════ -->
+<div class="section" id="schedule">
+  <h1 class="page-title">Weekly Kitchen Schedule</h1>
+  <p class="page-sub">Ferments, bread baking, shopping, and prep — coordinated so everything is ready when you need it. Click tasks to mark done.</p>
+
+  <div class="schedule-grid" id="schedule-grid"></div>
+
+  <div class="card" style="margin-top:20px;">
+    <div class="card-header"><div class="card-title">📖 The Weekly Rhythm — Why this order works</div></div>
+    <div class="card-body" style="font-size:13px; color:var(--mid); line-height:1.8;">
+      <strong style="color:var(--ink);">Friday evening:</strong> Start skyr + Greek yoghurt batch (3.5L milk, heat → cool → inoculate → oven overnight). Check kefir — strain if ready, refeed grains.<br>
+      <strong style="color:var(--ink);">Saturday 7AM:</strong> Split yoghurt batch — half into strainer for Greek (done in 3 hrs), half for skyr (strain 12 hrs). Feed sourdough starter.<br>
+      <strong style="color:var(--ink);">Saturday 10AM:</strong> Greek yoghurt done — jar it. Save all whey.<br>
+      <strong style="color:var(--ink);">Saturday evening:</strong> Skyr done — jar it. Mix bread dough. Stretch & fold ×4 over 2 hrs.<br>
+      <strong style="color:var(--ink);">Saturday 9:30PM:</strong> Shape batard (freestanding — no tin), place in banneton, cold proof in fridge overnight.<br>
+      <strong style="color:var(--ink);">Sunday morning:</strong> Bake bread from cold on preheated stone with steam.<br>
+      <strong style="color:var(--ink);">Sunday:</strong> Big WinCo + Fred Meyer shop → pantry fully stocked.<br>
+      <strong style="color:var(--ink);">Sunday afternoon:</strong> Cook chickpea batch in Instant Pot, portion and freeze.<br>
+      <strong style="color:var(--ink);">Tuesday evening:</strong> Roast chicken → save bones for Wednesday broth.<br>
+      <strong style="color:var(--ink);">Wednesday morning:</strong> 60-min Instant Pot broth from Tuesday bones.<br>
+      <strong style="color:var(--ink);">Wednesday/Thursday:</strong> Fred Meyer top-up shop (fresh produce, eggs, dairy).<br>
+      <strong style="color:var(--ink);">Kefir (ongoing):</strong> 2–3 tbsp grains in 1L milk, 24 hrs room temp, strain, refeed. When not needed — grains rest in fridge in milk, feed weekly.<br>
+      <strong style="color:var(--ink);">Thursday evening:</strong> Maxi cooks — shakshuka or his choice.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     BREAD GUIDE
+═══════════════════════════════════════════ -->
+<div class="section" id="bread">
+  <h1 class="page-title">German Bread Guide</h1>
+  <p class="page-sub">Two freestanding sourdough loaves — no tin, ever. Baked directly on a preheated stone or heavy steel sheet. Target: elongated <em>Batard</em> shape, width ~60% of length, height ~10cm, shattering crust. German-bakery quality or don't bother.</p>
+
+  <div style="background:var(--ink);color:white;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;font-size:13px;line-height:1.8;">
+    <strong style="color:#A8D5AB;">What makes these loaves stand up — the four non-negotiables:</strong><br>
+    <strong>① Surface tension:</strong> The shaped loaf must feel like a drum skin. Slack surface = spreads sideways. No exceptions.<br>
+    <strong>② Baking stone or heavy steel</strong> preheated 45+ min at 250°C. Instant bottom heat kicks off oven spring before the crust sets.<br>
+    <strong>③ Steam — first 15 min:</strong> Pour 200ml boiling water into a hot metal tray on the bottom rack. Steam keeps the crust elastic so the loaf keeps rising. Without it the crust locks too early and you get a flat brick.<br>
+    <strong>④ Score at 30–45° angle:</strong> One deep slash along the length, blade angled not vertical. This directs the oven spring upward along the cut, not randomly sideways.
+  </div>
+
+  <div class="bread-tabs">
+    <button class="bread-tab active" onclick="showBread('wheat', this)">🌾 Weizenbrot (Pure Wheat)</button>
+    <button class="bread-tab" onclick="showBread('misch', this)">⚖️ Mischbrot (50/50 Wheat-Rye)</button>
+  </div>
+
+  <!-- WHEAT SOURDOUGH -->
+  <div class="bread-recipe active" id="bread-wheat">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🌾 Weizensauerteigbrot — Freestanding Pure Wheat Sourdough</div>
+        <span class="tag tag-ok">Freestanding Batard · ~900g · 10cm height</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px; color:var(--mid); margin-bottom:12px; line-height:1.6;">
+          Pure wheat sourdough with a wide-open, chewy crumb and a crust so thick it shatters when you cut it. The high-protein bread flour gives you the gluten strength to hold a freestanding 10cm loaf without any support. This is your lightest, most versatile bread — great with cheese, jam, eggs, or dal.
+        </p>
+        <div class="recipe-meta-row">
+          <div class="rmeta"><div class="rmeta-label">Active time</div><div class="rmeta-val">30 min</div></div>
+          <div class="rmeta"><div class="rmeta-label">Total time</div><div class="rmeta-val">18–22 hrs</div></div>
+          <div class="rmeta"><div class="rmeta-label">Cost</div><div class="rmeta-val">~$0.65/loaf</div></div>
+          <div class="rmeta"><div class="rmeta-label">Hydration</div><div class="rmeta-val">72%</div></div>
+          <div class="rmeta"><div class="rmeta-label">Keeps</div><div class="rmeta-val">3–4 days</div></div>
+        </div>
+        <div class="recipe-steps-list">
+          <div class="rstep">
+            <div class="rstep-num">1</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Feed the starter (Friday evening)</div>
+              <div class="rstep-desc">Mix 50g existing starter + 100g strong bread flour + 100g water at 25°C. Stir well, cover loosely, leave at room temperature 8–12 hours. It must be at peak activity — domed on top, full of bubbles, and passes the float test (a spoonful dropped in water floats). A weak starter is the number one cause of flat bread.</div>
+              <div class="rstep-timer">⏱ 8–12 hrs overnight</div>
+              <div class="rstep-tip">💡 Float test: drop a teaspoon of starter in a glass of water. If it floats, it's ready. If it sinks, wait another hour.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">2</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Autolyse — flour and water only (Saturday morning)</div>
+              <div class="rstep-desc">Combine 450g strong bread flour + 50g whole wheat flour + 360g water at 28°C. Mix with your hand until no dry flour remains — about 2 minutes. Cover and rest 45 minutes untouched. This step alone develops 60–70% of your gluten with zero effort and makes the dough far more extensible for shaping.</div>
+              <div class="rstep-timer">⏱ 45 min rest</div>
+              <div class="rstep-tip">💡 Use a thermometer for the water. At 28°C the whole dough will be roughly 24–25°C — the ideal bulk fermentation temperature. Cold water stalls everything.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">3</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Incorporate starter and salt</div>
+              <div class="rstep-desc">Add 200g active starter and 10g fine salt to the autolysed dough. Use the "pinch and fold" method: squeeze the starter through the dough with your fingers, fold, rotate, repeat for 4–5 minutes until fully incorporated and the dough feels cohesive again. It will look shaggy at first — keep going until smooth.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">4</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Bulk fermentation with stretch & fold (4–5 hrs)</div>
+              <div class="rstep-desc">Leave covered at 24–26°C. Perform 4 sets of stretch & folds spaced 30 minutes apart during the first 2 hours: wet your hand, grab one side of the dough, stretch it as high as it will go without tearing, fold it over to the opposite side. Rotate the bowl 90° and repeat — 4 folds = 1 set. After the 4th set, leave undisturbed until the dough has grown 60–75% and the surface shows domed bubbles.</div>
+              <div class="rstep-timer">⏱ 4–5 hrs total</div>
+              <div class="rstep-tip">💡 After the 4th fold set the dough should feel noticeably stronger — it will hold its shape briefly when you pull it, not sag immediately. That strength is what will hold up a 10cm freestanding loaf.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">5</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Pre-shape — the foundation of height</div>
+              <div class="rstep-desc">Lightly flour your work surface. Gently scrape the dough out — do not punch down or degas. Using a bench scraper, fold the edges underneath to form a rough oval. Drag it towards you across the surface — the friction tightens the top skin. Cover with a bowl or cloth and rest 25–30 minutes. This rest relaxes the gluten just enough to shape without tearing.</div>
+              <div class="rstep-timer">⏱ 25–30 min bench rest</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">6</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Final shape — Batard (elongated oval)</div>
+              <div class="rstep-desc">Flip the dough so the smooth side is down. Fold the top third down to the centre, then the bottom third up over it (like a letter). Now fold the left side to the centre, then the right side over. Roll the whole package away from you into a tight oval log, sealing the seam with your palm. Drag it back towards you using the bench scraper — again the friction builds surface tension. The surface must feel tight like a drum. Place seam-side UP in a well-floured oval proofing basket (banneton) or a flour-lined bowl.</div>
+              <div class="rstep-tip">💡 Width target: roughly 60% of the length. A 28cm long batard should be about 17cm wide. If it spreads wider during shaping your dough is too slack — tighten more aggressively.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">7</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Cold proof overnight in the fridge</div>
+              <div class="rstep-desc">Cover the banneton with a shower cap or cling film and refrigerate 10–14 hours. Cold proofing slows fermentation, builds more complex flavour, and — critically — firms up the dough so it holds its shape when you flip it out onto the hot stone. A cold dough scores more cleanly and springs more dramatically than a room-temperature one.</div>
+              <div class="rstep-timer">⏱ 10–14 hrs fridge</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">8</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Bake — preheat hard, steam aggressively</div>
+              <div class="rstep-desc">Place your baking stone or a heavy inverted steel sheet pan on the middle rack. Place an empty metal roasting tray on the bottom rack. Preheat at 250°C (480°F) for a MINIMUM of 45 minutes — the stone must be saturated with heat. Take the dough straight from the fridge. Flip it out onto a sheet of baking parchment. Score immediately with a razor blade or very sharp knife: one slash from end to end, blade angled at 30–45° (not vertical), 1.5–2cm deep. Slide onto the stone. Immediately pour 250ml of boiling water into the bottom tray and CLOSE THE OVEN FAST. Do not open for 15 minutes.</div>
+              <div class="rstep-tip">💡 The angle of the score is everything. A vertical cut gives you a round lip. A 45° angled cut gives you the classic "ear" — the flap that peels back and rises upward, adding another 1–2cm of height visually.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">9</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Finish without steam — build the crust</div>
+              <div class="rstep-desc">After 15 minutes, open the oven, remove the steam tray, and reduce temperature to 220°C. Bake a further 22–28 minutes until the crust is deep mahogany brown — not golden, not pale, genuinely dark. It should sound hollow when you knock the bottom. Internal temperature: 96–97°C. Transfer to a wire rack immediately and leave untouched for at least 1 hour — the crumb is still setting.</div>
+              <div class="rstep-timer">⏱ 37–43 min total bake</div>
+              <div class="rstep-tip">💡 For a thicker, harder crust: after baking, turn the oven off, crack the door open 5cm, and leave the loaf inside for 20 more minutes. The residual heat and airflow dries the crust further. This is how German bakeries get that almost-shattering crust.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MISCHBROT -->
+  <div class="bread-recipe" id="bread-misch">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚖️ Mischbrot — Freestanding 50/50 Wheat-Rye Sourdough</div>
+        <span class="tag" style="background:var(--rye-bg);color:var(--rye);">Freestanding Batard · Denser crumb · Complex flavour</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px; color:var(--mid); margin-bottom:12px; line-height:1.6;">
+          The most eaten bread in Germany. Darker, denser, more complex than pure wheat — a slightly sour, earthy flavour that pairs with everything from cheese to cold cuts to soup. The rye component weakens gluten, so the technique is more demanding: lower hydration, firmer pre-shape, and a slightly cooler final bake. A freestanding 10cm Mischbrot is achievable but requires precise shaping. Do not skip the pre-shape rest.
+        </p>
+        <div class="recipe-meta-row">
+          <div class="rmeta"><div class="rmeta-label">Active time</div><div class="rmeta-val">35 min</div></div>
+          <div class="rmeta"><div class="rmeta-label">Total time</div><div class="rmeta-val">20–24 hrs</div></div>
+          <div class="rmeta"><div class="rmeta-label">Cost</div><div class="rmeta-val">~$0.70/loaf</div></div>
+          <div class="rmeta"><div class="rmeta-label">Hydration</div><div class="rmeta-val">74%</div></div>
+          <div class="rmeta"><div class="rmeta-label">Keeps</div><div class="rmeta-val">4–5 days</div></div>
+        </div>
+        <div class="recipe-steps-list">
+          <div class="rstep">
+            <div class="rstep-num">1</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Build the Roggensauer — rye pre-ferment (Thursday evening)</div>
+              <div class="rstep-desc">Mix 200g dark rye flour + 200g warm water (28°C) + 2 tbsp active wheat starter. Stir well, cover, and leave 12–14 hours at room temperature. By Friday morning it will be very bubbly, smell sharply sour, and have risen and begun to fall. This is your Roggensauer — the engine of the bread's flavour. Building the rye component separately and overnight gives far more complexity than mixing it all at once on baking day.</div>
+              <div class="rstep-timer">⏱ 12–14 hrs overnight</div>
+              <div class="rstep-tip">💡 The Roggensauer is ready when it smells sour-fruity and has visible bubbles throughout. If it smells alcoholic or like acetone, it over-fermented — start again. Use less starter or a cooler room next time.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">2</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Mix the final dough (Friday morning or Saturday morning)</div>
+              <div class="rstep-desc">Combine the full Roggensauer + 280g strong bread flour + 20g whole wheat flour + 150g water at 28°C + 80g active wheat starter + 11g fine salt. Mix thoroughly by hand for 4–5 minutes — the dough will be noticeably stickier and denser than pure wheat. This is correct. Hydration is kept lower (74%) precisely to compensate for the rye's weaker gluten, giving you a shapeable dough rather than a slack one.</div>
+              <div class="rstep-tip">💡 Do not add more water even if tempted. The rye absorbs water slowly — after 30 minutes of resting the dough will feel more manageable.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">3</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Bulk fermentation — gentler folds than wheat</div>
+              <div class="rstep-desc">Cover and leave at 24–26°C for 3.5–4.5 hours. Perform only 3 sets of stretch & folds in the first 90 minutes (every 30 min). The dough will feel tighter and less extensible than pure wheat — do not overwork it. After the folds, leave completely undisturbed. Ready when grown 40–50% with surface bubbles. Rye ferments faster than wheat — do not over-proof.</div>
+              <div class="rstep-timer">⏱ 3.5–4.5 hrs</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">4</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Pre-shape — this step is more critical than for wheat</div>
+              <div class="rstep-desc">Flour your work surface generously — rye sticks. Scrape the dough out and fold the edges under to form a rough oval. Drag firmly towards you with the bench scraper to tighten the surface. Because rye weakens gluten, you need more tension here than with pure wheat. Cover and rest 30–35 minutes — longer than for wheat, because the rye-weakened gluten needs more time to relax and become extensible for final shaping.</div>
+              <div class="rstep-timer">⏱ 30–35 min bench rest</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">5</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Final shape — tight Batard, maximum tension</div>
+              <div class="rstep-desc">Flip the dough smooth-side down. Fold top third down, bottom third up. Fold left side to centre, right side over. Roll into a tight oval log — use firm, confident pressure. Drag back with the bench scraper. The surface must be tight. Any slack will result in sideways spread. This dough will not have the silky extensibility of pure wheat — it will feel stiffer and slightly resistant. Work with that resistance rather than against it. Place seam-side UP in a well-floured banneton or bowl.</div>
+              <div class="rstep-tip">💡 Flour the banneton more generously than for wheat — rye dough sticks more aggressively. Rice flour mixed with regular flour is excellent for lining if available.</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">6</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Cold proof — longer than wheat</div>
+              <div class="rstep-desc">Cover and refrigerate 12–16 hours. The extra cold time is important for Mischbrot — the rye component develops far more of its characteristic flavour during slow cold fermentation. The longer cold proof also firms the loaf more thoroughly, which it needs given the weaker gluten structure.</div>
+              <div class="rstep-timer">⏱ 12–16 hrs fridge</div>
+            </div>
+          </div>
+          <div class="rstep">
+            <div class="rstep-num">7</div>
+            <div class="rstep-content">
+              <div class="rstep-title">Bake — slightly lower than wheat, longer time</div>
+              <div class="rstep-desc">Preheat stone and bottom tray at 250°C for 45+ minutes. Flip the cold dough onto baking parchment. Score with one long slash, blade at 30–45°. Slide onto stone, pour 250ml boiling water into bottom tray, close oven immediately. After 15 minutes remove the steam tray and reduce to 210°C (slightly lower than wheat — the rye sugars burn faster). Bake a further 28–32 minutes. The crust should be very dark — deep brown with some near-black patches, which is correct and traditional for Mischbrot. Internal temp: 97°C. Cool on a rack for minimum 2 hours before slicing.</div>
+              <div class="rstep-timer">⏱ 43–47 min total bake</div>
+              <div class="rstep-tip">💡 Same oven-door trick for extra crust: after baking, off oven, door cracked 5cm, leave loaf inside 20 min. The Mischbrot crust becomes genuinely thick — almost like a shell. That's exactly what you want.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end main -->
+
+<!-- ═══════ MODALS ═══════ -->
+<div class="modal-overlay" id="modal-pantry">
+  <div class="modal">
+    <h3>Add Pantry Item</h3>
+    <div class="form-row"><label class="form-label">Item Name</label><input class="input" id="new-pantry-name" placeholder="e.g. Red lentils"></div>
+    <div class="form-row"><label class="form-label">Category</label>
+      <select class="input" id="new-pantry-cat">
+        <option value="grains">Grains & Legumes</option>
+        <option value="protein">Protein</option>
+        <option value="dairy">Dairy</option>
+        <option value="produce">Produce</option>
+        <option value="pantry">Pantry</option>
+        <option value="baking">Baking</option>
+      </select>
+    </div>
+    <div class="form-row"><label class="form-label">Current Quantity + Unit</label><input class="input" id="new-pantry-qty" placeholder="e.g. 2 lbs"></div>
+    <div class="form-row"><label class="form-label">Minimum (trigger shopping)</label><input class="input" id="new-pantry-min" placeholder="e.g. 0.5 lbs"></div>
+    <div class="form-row"><label class="form-label">Store</label>
+      <select class="input" id="new-pantry-store">
+        <option>WinCo (bulk)</option>
+        <option>Fred Meyer</option>
+        <option>Either</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="savePantryItem()">Add Item</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-pantry')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-fridge">
+  <div class="modal">
+    <h3>Add to Fridge</h3>
+    <div class="form-row"><label class="form-label">Item Name</label><input class="input" id="new-fridge-name" placeholder="e.g. Leftover dal"></div>
+    <div class="form-row"><label class="form-label">Quantity</label><input class="input" id="new-fridge-qty" placeholder="e.g. 2 portions"></div>
+    <div class="form-row"><label class="form-label">Type</label>
+      <select class="input" id="new-fridge-type">
+        <option value="fresh">Fresh ingredient</option>
+        <option value="leftover">Leftover cooked meal</option>
+        <option value="expiring">Use soon</option>
+      </select>
+    </div>
+    <div class="form-row"><label class="form-label">Added / Cooked on</label><input class="input" type="date" id="new-fridge-date"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveFridgeItem()">Add</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-fridge')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// STATE & PERSISTENCE
+// ══════════════════════════════════════════
+const STORAGE_KEY = 'kuche_corvallis_v1';
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    document.getElementById('save-badge').textContent = '✓ Saved ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════
+// INITIAL DATA
+// ══════════════════════════════════════════
+const DEFAULT_STATE = {
+  pantry: [
+    {id:1, name:'Rolled oats', cat:'grains', qty:2, unit:'lbs', min:0.5, store:'WinCo (bulk)'},
+    {id:2, name:'Basmati rice', cat:'grains', qty:4, unit:'lbs', min:1, store:'WinCo (bulk)'},
+    {id:3, name:'Red lentils', cat:'grains', qty:2, unit:'lbs', min:0.5, store:'WinCo (bulk)'},
+    {id:4, name:'Green lentils', cat:'grains', qty:1, unit:'lbs', min:0.5, store:'WinCo (bulk)'},
+    {id:5, name:'Dried chickpeas', cat:'grains', qty:1, unit:'lbs', min:0.5, store:'WinCo (bulk)'},
+    {id:6, name:'Bread flour (strong)', cat:'baking', qty:5, unit:'lbs', min:2, store:'WinCo (bulk)'},
+    {id:7, name:'Whole wheat flour', cat:'baking', qty:2, unit:'lbs', min:1, store:'WinCo (bulk)'},
+    {id:8, name:'Dark rye flour', cat:'baking', qty:2, unit:'lbs', min:1, store:'WinCo (bulk)'},
+    {id:9, name:'Eggs (free-range)', cat:'protein', qty:24, unit:'count', min:6, store:'Fred Meyer'},
+    {id:10, name:'Chicken thighs', cat:'protein', qty:3, unit:'lbs', min:0, store:'Fred Meyer'},
+    {id:11, name:'Firm tofu', cat:'protein', qty:2, unit:'packs', min:1, store:'Fred Meyer'},
+    {id:12, name:'Tempeh', cat:'protein', qty:1, unit:'packs', min:0, store:'Fred Meyer'},
+    {id:13, name:'Whole milk', cat:'dairy', qty:1, unit:'gallons', min:0.5, store:'Fred Meyer'},
+    {id:14, name:'Butter (unsalted)', cat:'dairy', qty:1, unit:'lbs', min:0.25, store:'Fred Meyer'},
+    {id:15, name:'Cheddar / Gruyère', cat:'dairy', qty:0.5, unit:'lbs', min:0.1, store:'Fred Meyer'},
+    {id:16, name:'Hemp seeds', cat:'pantry', qty:0.5, unit:'lbs', min:0.1, store:'WinCo (bulk)'},
+    {id:17, name:'Onions (yellow)', cat:'produce', qty:3, unit:'lbs', min:1, store:'Fred Meyer'},
+    {id:18, name:'Garlic', cat:'produce', qty:2, unit:'heads', min:1, store:'Fred Meyer'},
+    {id:19, name:'Carrots', cat:'produce', qty:2, unit:'lbs', min:0.5, store:'Fred Meyer'},
+    {id:20, name:'Potatoes (Yukon)', cat:'produce', qty:5, unit:'lbs', min:1, store:'Fred Meyer'},
+    {id:21, name:'Olive oil', cat:'pantry', qty:1, unit:'bottle', min:0.1, store:'Fred Meyer'},
+    {id:22, name:'Canned tomatoes', cat:'pantry', qty:3, unit:'cans', min:1, store:'WinCo (bulk)'},
+    {id:23, name:'Bananas', cat:'produce', qty:2, unit:'bunches', min:0.5, store:'Fred Meyer'},
+    {id:24, name:'Edamame (frozen)', cat:'protein', qty:1, unit:'lbs', min:0, store:'Fred Meyer'},
+    {id:25, name:'Sourdough starter', cat:'baking', qty:1, unit:'jar (active)', min:1, store:'Home'},
+  ],
+  fridge: [
+    {id:1, name:'Free-range eggs', qty:'18 count', type:'fresh', date: new Date().toISOString().split('T')[0]},
+    {id:2, name:'Whole milk', qty:'½ gallon', type:'fresh', date: new Date().toISOString().split('T')[0]},
+    {id:3, name:'Butter', qty:'¾ lb', type:'fresh', date: new Date().toISOString().split('T')[0]},
+  ],
+  shopping: {
+    auto: [], // auto-generated from pantry
+    manual: [], // manually added
+    checked: {} // item_id: true/false
+  },
+  mealplan: {
+    cooked: {}, // day_meal: true/false
+  },
+  protein: {
+    // day: { sources: [{name, g}] }
+    Mon: {sources:[]}, Tue: {sources:[]}, Wed: {sources:[]},
+    Thu: {sources:[]}, Fri: {sources:[]}, Sat: {sources:[]}, Sun: {sources:[]}
+  },
+  schedule: {
+    done: {} // task_id: true/false
+  }
+};
+
+let state = loadState() || JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+// ══════════════════════════════════════════
+// MEAL PLAN DATA
+// ══════════════════════════════════════════
+const MEALS = [
+  {
+    day: 'Monday', key: 'mon',
+    breakfast: {name: 'Eggs + bread + cheese / jam', desc: 'Jens: 2 fried or scrambled eggs, thick slice of Mischbrot, hard cheese or jam. Caleb: oatmeal with honey and seeds. Maxi: cornflakes or toast.', protein: {jens:14, maxi:8}},
+    dinner: {name: 'Red Lentil Dal + Basmati + Roti', desc: 'Masoor dal, mild spiced with cumin, turmeric, coriander. Fresh roti off cast iron. All three eat this. Maxi gets extra hemp seeds sprinkled on top.', protein: {jens:22, maxi:20}, tags:['All three eat this'], leftover:'Dal → Tuesday soup base'},
+    cook: 'Jens'
+  },
+  {
+    day: 'Tuesday', key: 'tue',
+    breakfast: {name: 'Yoghurt / Skyr + granola + fruit', desc: 'Homemade skyr, WinCo bulk granola, banana or apple. High protein start. Maxi: smaller dairy portion — add 2 tbsp hemp seeds to boost protein without extra dairy.', protein: {jens:18, maxi:14}},
+    dinner: {name: 'Roast Chicken Thighs + Root Vegetables', desc: 'Bone-in thighs, carrots, potatoes, garlic, rosemary. Maxi: same roasted vegetables + 1 fried egg on top. Save chicken bones for Wednesday broth!', protein: {jens:35, maxi:12}, tags:['Maxi: veg + egg'], leftover:'Bones → Wed Instant Pot broth'},
+    cook: 'Jens'
+  },
+  {
+    day: 'Wednesday', key: 'wed',
+    breakfast: {name: 'Eggs on sourdough toast', desc: '2–3 scrambled eggs on thick sourdough. Optional: wilted kale or chard on the side (not spinach). Simple, protein-forward, fast.', protein: {jens:18, maxi:12}},
+    dinner: {name: 'Chicken Broth Noodle Soup / Miso Tofu for Maxi', desc: "Tuesday's Instant Pot broth. Egg noodles or soba, vegetables, shredded chicken. Maxi: miso soup with silken tofu and noodles. Maxi adds hemp seeds to his bowl.", protein: {jens:28, maxi:18}, tags:['Uses Tue broth', 'Maxi: miso-tofu'], leftover:null},
+    cook: 'Jens'
+  },
+  {
+    day: 'Thursday', key: 'thu',
+    breakfast: {name: 'Haferbrei (porridge) + seeds + honey', desc: 'German-style oat porridge, steel-cut or rolled, cooked with milk. Pumpkin seeds, hemp seeds, honey. All three can have this — Maxi gets hemp seeds and a small portion of skyr on the side.', protein: {jens:14, maxi:16}},
+    dinner: {name: 'Shakshuka + homemade bread', desc: 'Eggs poached in spiced tomato sauce (cumin, paprika, a little chili on the side for Jens). One pan, 25 min. Torn bread for dipping. Maxi adds tempeh cubes pan-fried alongside. MAXI COOKS TONIGHT if he wants to try.', protein: {jens:20, maxi:22}, tags:['All three eat', 'Maxi cooking night 🧑‍🍳'], leftover:null},
+    cook: 'Maxi (guided)'
+  },
+  {
+    day: 'Friday', key: 'fri',
+    breakfast: {name: 'Banana egg pancakes', desc: '2 eggs + 1 banana per person, pan-fried. Optional oats mixed in. Honey or yoghurt on top. Quick treat breakfast.', protein: {jens:14, maxi:12}},
+    dinner: {name: 'Pan-fried Salmon + Lentils + Greens', desc: 'Jens + Caleb: salmon or cod fillet, pan-seared in butter with lemon. Maxi: green lentils with garlic and herbs + 1 fried egg + hemp seeds.', protein: {jens:40, maxi:24}, tags:['Jens/Caleb: fish', 'Maxi: lentils + egg'], leftover:'Lentils → Sat frittata'},
+    cook: 'Jens'
+  },
+  {
+    day: 'Saturday', key: 'sat',
+    breakfast: {name: 'Frittata with leftover vegetables', desc: '6–8 eggs, sautéed onion, leftover vegetables, cheese. Oven-finished, sliced at table. Saturday breakfast worth sitting down for. Maxi: same frittata — high protein morning for him.', protein: {jens:22, maxi:22}},
+    dinner: {name: 'Beef Stew (Instant Pot) / Chickpea stew for Maxi', desc: 'Chuck beef, carrots, onions, celery, tomato paste, herbs, vinegar. Instant Pot: 45 min. Maxi: identical stew but with chickpeas instead of beef. Add tempeh to Maxi\'s version for extra protein.', protein: {jens:38, maxi:26}, tags:['Jens/Caleb: beef', 'Maxi: chickpea-tempeh'], leftover:'Stew → Sun lunch'},
+    cook: 'Jens'
+  },
+  {
+    day: 'Sunday', key: 'sun',
+    breakfast: {name: 'Fresh bread + yoghurt + honey', desc: 'Bread baked this morning. Homemade skyr/yoghurt, local honey, soft butter, sliced apple or banana. The European Sunday morning. No cooking — just assembly.', protein: {jens:12, maxi:10}},
+    dinner: {name: 'Vegetable Biryani (mild) + Raita', desc: 'Layered basmati with cauliflower, peas, potatoes, whole spices (cardamom, clove, bay, cumin), fried onions, coriander. MILD — no chili in the main dish. Raita from homemade yoghurt. Hemp seeds on Maxi\'s portion. All three eat this.', protein: {jens:18, maxi:20}, tags:['All three eat', 'Mild spice'], leftover:'Biryani → Mon/Tue school lunch'},
+    cook: 'Jens'
+  }
+];
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+  renderSection(id);
+}
+
+function renderSection(id) {
+  if (id === 'dashboard') renderDashboard();
+  else if (id === 'mealplan') renderMealPlan();
+  else if (id === 'pantry') renderPantry('all');
+  else if (id === 'fridge') renderFridge('all');
+  else if (id === 'shopping') renderShopping();
+  else if (id === 'protein') renderProtein();
+  else if (id === 'ferments') { renderFermentLogs(); renderFermentStatus(); }
+  else if (id === 'schedule') renderSchedule();
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+function renderDashboard() {
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayName = days[now.getDay()];
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  // Tonight's dinner
+  const todayMeal = MEALS.find(m => m.day === dayName);
+  if (todayMeal) {
+    document.getElementById('dash-dinner').textContent = todayMeal.dinner.name;
+    document.getElementById('dash-dinner-sub').textContent = 'Cook: ' + todayMeal.cook;
+  }
+
+  // Maxi protein
+  const dayKey = dayName.substring(0,3);
+  const dayProteins = state.protein[dayKey] || {sources:[]};
+  const total = dayProteins.sources.reduce((a,s) => a + s.g, 0);
+  const protEl = document.getElementById('dash-protein');
+  protEl.textContent = total + 'g';
+  protEl.style.color = total >= 70 ? 'var(--sage)' : total >= 50 ? 'var(--gold)' : 'var(--red)';
+
+  // Low stock
+  const low = state.pantry.filter(p => parseFloat(p.qty) <= parseFloat(p.min));
+  document.getElementById('dash-shop-count').textContent = low.length;
+  const lowEl = document.getElementById('dash-low-stock');
+  if (low.length === 0) {
+    lowEl.innerHTML = '<span style="color:var(--sage)">✓ All pantry items are stocked</span>';
+  } else {
+    lowEl.innerHTML = low.map(p => `<div>⚠️ <strong>${p.name}</strong> — ${p.qty} ${p.unit} (min: ${p.min})</div>`).join('');
+  }
+
+  // Leftovers
+  const lf = state.fridge.filter(f => f.type === 'leftover');
+  document.getElementById('dash-leftovers').textContent = lf.length;
+
+  // Today's tasks
+  const schedData = getScheduleTasks();
+  const todayTasks = schedData.find(d => d.day === dayName);
+  const tasksEl = document.getElementById('dash-tasks');
+  if (todayTasks && todayTasks.tasks.length) {
+    tasksEl.innerHTML = todayTasks.tasks.map(t =>
+      `<div style="padding:4px 0;">
+        <span class="sched-task ${t.type}" style="display:inline-block; margin-right:8px;">${t.label}</span>
+        <span style="font-size:12px; color:var(--mid);">${t.time}</span>
+      </div>`
+    ).join('');
+  } else {
+    tasksEl.innerHTML = '<span style="color:var(--mid)">No special kitchen tasks today.</span>';
+  }
+}
+
+// ══════════════════════════════════════════
+// MEAL PLAN
+// ══════════════════════════════════════════
+function renderMealPlan() {
+  const container = document.getElementById('meal-plan-container');
+  container.innerHTML = MEALS.map(m => `
+    <div class="day-row" id="day-${m.key}">
+      <div class="day-head" onclick="toggleDay('${m.key}')">
+        <div class="day-label">${m.day}</div>
+        <div class="meal-preview"><strong>Breakfast</strong>${m.breakfast.name}</div>
+        <div class="meal-preview"><strong>Dinner</strong>${m.dinner.name}</div>
+        <div class="meal-preview"><strong>Cook</strong>${m.cook}</div>
+        <div class="day-toggle">▼</div>
+      </div>
+      <div class="day-detail">
+        <div class="meal-block">
+          <div class="meal-type-label">Breakfast</div>
+          <div>
+            <div class="meal-name">${m.breakfast.name}</div>
+            <div class="meal-desc">${m.breakfast.desc}</div>
+            <div class="meal-notes">
+              <span class="meal-note note-veg">Jens ~${m.breakfast.protein.jens}g protein</span>
+              <span class="meal-note note-left">Maxi ~${m.breakfast.protein.maxi}g protein</span>
+            </div>
+          </div>
+          <div class="meal-protein"><div class="total">${m.breakfast.protein.maxi}g</div><div style="font-size:10px;color:var(--mid)">Maxi</div></div>
+        </div>
+        <div class="meal-block">
+          <div class="meal-type-label">Dinner</div>
+          <div>
+            <div class="meal-name">${m.dinner.name}</div>
+            <div class="meal-desc">${m.dinner.desc}</div>
+            <div class="meal-notes">
+              ${(m.dinner.tags||[]).map(t => `<span class="meal-note ${t.includes('Maxi')||t.includes('All')?'note-veg':'note-left'}">${t}</span>`).join('')}
+              ${m.dinner.leftover ? `<span class="meal-note note-left">→ ${m.dinner.leftover}</span>` : ''}
+            </div>
+            <button class="cook-btn ${state.mealplan.cooked[m.key+'_dinner']?'cooked':''}"
+              onclick="markCooked('${m.key}')">
+              ${state.mealplan.cooked[m.key+'_dinner'] ? '✓ Cooked & logged' : '👨‍🍳 Mark as cooked → log leftovers'}
+            </button>
+          </div>
+          <div class="meal-protein"><div class="total">${m.dinner.protein.maxi}g</div><div style="font-size:10px;color:var(--mid)">Maxi</div></div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleDay(key) {
+  document.getElementById('day-'+key).classList.toggle('open');
+}
+
+function markCooked(key) {
+  const meal = MEALS.find(m => m.key === key);
+  if (!meal) return;
+  state.mealplan.cooked[key+'_dinner'] = true;
+  // Auto-log leftover if exists
+  if (meal.dinner.leftover) {
+    const leftoverName = meal.dinner.leftover.split('→')[1].trim();
+    state.fridge.push({
+      id: Date.now(),
+      name: leftoverName,
+      qty: '~2-3 portions',
+      type: 'leftover',
+      date: new Date().toISOString().split('T')[0]
+    });
+    showToast('✓ Cooked! Leftover logged: ' + leftoverName);
+  } else {
+    showToast('✓ Marked as cooked!');
+  }
+  // Auto-deduct some pantry items
+  deductPantryForMeal(meal);
+  saveState();
+  renderMealPlan();
+  renderDashboard();
+}
+
+function deductPantryForMeal(meal) {
+  // Simple deductions based on meal type
+  const name = meal.dinner.name.toLowerCase();
+  if (name.includes('lentil') || name.includes('dal')) {
+    adjustPantry('Red lentils', -0.25);
+    adjustPantry('Basmati rice', -0.3);
+  }
+  if (name.includes('chicken')) {
+    adjustPantry('Chicken thighs', -0.75);
+    adjustPantry('Carrots', -0.25);
+    adjustPantry('Potatoes (Yukon)', -0.5);
+  }
+  if (name.includes('biryani')) {
+    adjustPantry('Basmati rice', -0.5);
+  }
+  if (name.includes('shakshuka')) {
+    adjustPantry('Eggs (free-range)', -4);
+    adjustPantry('Canned tomatoes', -1);
+  }
+  if (name.includes('stew')) {
+    adjustPantry('Carrots', -0.3);
+    adjustPantry('Potatoes (Yukon)', -0.5);
+  }
+}
+
+function adjustPantry(name, delta) {
+  const item = state.pantry.find(p => p.name === name);
+  if (item) {
+    item.qty = Math.max(0, parseFloat(item.qty) + delta);
+    item.qty = Math.round(item.qty * 10) / 10;
+  }
+}
+
+// ══════════════════════════════════════════
+// PANTRY
+// ══════════════════════════════════════════
+let currentPantryFilter = 'all';
+
+function renderPantry(filter) {
+  currentPantryFilter = filter;
+  const items = filter === 'all' ? state.pantry : state.pantry.filter(p => p.cat === filter);
+  const tbody = document.getElementById('pantry-tbody');
+  tbody.innerHTML = items.map(p => {
+    const ratio = parseFloat(p.min) > 0 ? Math.min(1, parseFloat(p.qty) / (parseFloat(p.min) * 3)) : 0.8;
+    const isLow = parseFloat(p.qty) <= parseFloat(p.min);
+    const barColor = ratio > 0.6 ? 'var(--sage)' : ratio > 0.3 ? 'var(--gold)' : 'var(--red)';
+    return `
+      <tr class="${isLow ? 'low-stock' : ''}">
+        <td><strong>${p.name}</strong></td>
+        <td><span class="tag tag-veg" style="font-size:10px;">${p.cat}</span></td>
+        <td>
+          <div class="qty-control">
+            <button class="qty-btn" onclick="adjustQty(${p.id}, -0.25)">−</button>
+            <span class="qty-display ${isLow?'low':'ok'}">${p.qty} ${p.unit}</span>
+            <button class="qty-btn" onclick="adjustQty(${p.id}, 0.25)">+</button>
+          </div>
+          <div class="stock-bar" style="margin-top:4px;">
+            <div class="stock-fill" style="width:${ratio*100}%;background:${barColor};"></div>
+          </div>
+        </td>
+        <td style="font-size:12px; color:var(--mid); font-family:'IBM Plex Mono',monospace;">${p.min} ${p.unit}</td>
+        <td>${isLow ? '<span class="tag tag-low">Low</span>' : '<span class="tag tag-ok">OK</span>'}</td>
+        <td style="font-size:12px; color:var(--mid);">${p.store}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="deletePantryItem(${p.id})">×</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterPantry(cat, btn) {
+  document.querySelectorAll('.pantry-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPantry(cat);
+}
+
+function adjustQty(id, delta) {
+  const item = state.pantry.find(p => p.id === id);
+  if (item) {
+    item.qty = Math.max(0, Math.round((parseFloat(item.qty) + delta) * 10) / 10);
+    saveState();
+    renderPantry(currentPantryFilter);
+    updateShoppingAuto();
+  }
+}
+
+function deletePantryItem(id) {
+  state.pantry = state.pantry.filter(p => p.id !== id);
+  saveState();
+  renderPantry(currentPantryFilter);
+}
+
+function openAddPantry() {
+  document.getElementById('modal-pantry').classList.add('open');
+}
+
+function savePantryItem() {
+  const name = document.getElementById('new-pantry-name').value.trim();
+  if (!name) return;
+  state.pantry.push({
+    id: Date.now(),
+    name,
+    cat: document.getElementById('new-pantry-cat').value,
+    qty: parseFloat(document.getElementById('new-pantry-qty').value) || 1,
+    unit: document.getElementById('new-pantry-qty').value.replace(/[\d.]/g,'').trim() || 'units',
+    min: parseFloat(document.getElementById('new-pantry-min').value) || 0,
+    store: document.getElementById('new-pantry-store').value
+  });
+  saveState();
+  closeModal('modal-pantry');
+  renderPantry(currentPantryFilter);
+  showToast('✓ Added to pantry');
+}
+
+// ══════════════════════════════════════════
+// FRIDGE
+// ══════════════════════════════════════════
+function renderFridge(filter) {
+  const items = filter === 'all' ? state.fridge : state.fridge.filter(f => f.type === filter);
+  const grid = document.getElementById('fridge-grid');
+  if (items.length === 0) {
+    grid.innerHTML = '<p style="color:var(--mid); font-size:13px; grid-column:1/-1;">No items here. Add something!</p>';
+    return;
+  }
+  grid.innerHTML = items.map(f => {
+    const age = Math.floor((Date.now() - new Date(f.date)) / 86400000);
+    const isExpiring = f.type === 'expiring' || (f.type === 'leftover' && age >= 2) || (f.type === 'fresh' && age >= 4);
+    return `
+      <div class="fridge-item ${f.type === 'leftover' ? 'leftover' : ''} ${isExpiring ? 'expiring' : ''}"
+           onclick="removeFridgeItem(${f.id})">
+        ${f.type === 'leftover' ? '<span class="fridge-badge badge-left">LEFTOVER</span>' : ''}
+        ${isExpiring ? '<span class="fridge-badge badge-exp">USE SOON</span>' : ''}
+        <div class="fridge-item-name">${f.name}</div>
+        <div class="fridge-item-qty">${f.qty}</div>
+        <div class="fridge-item-date">${age === 0 ? 'Added today' : age + (age===1?' day':' days') + ' ago'}</div>
+        <div style="font-size:10px; color:var(--muted); margin-top:6px;">Tap to remove</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterFridge(filter, btn) {
+  document.querySelectorAll('#fridge ~ * .filter-btn, .section#fridge .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderFridge(filter);
+}
+
+function removeFridgeItem(id) {
+  if (confirm('Remove this item from the fridge?')) {
+    state.fridge = state.fridge.filter(f => f.id !== id);
+    saveState();
+    renderFridge('all');
+    showToast('Removed from fridge');
+  }
+}
+
+function openAddFridge() {
+  document.getElementById('new-fridge-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('modal-fridge').classList.add('open');
+}
+
+function saveFridgeItem() {
+  const name = document.getElementById('new-fridge-name').value.trim();
+  if (!name) return;
+  state.fridge.push({
+    id: Date.now(),
+    name,
+    qty: document.getElementById('new-fridge-qty').value || '1 portion',
+    type: document.getElementById('new-fridge-type').value,
+    date: document.getElementById('new-fridge-date').value
+  });
+  saveState();
+  closeModal('modal-fridge');
+  renderFridge('all');
+  showToast('✓ Added to fridge');
+}
+
+// ══════════════════════════════════════════
+// SHOPPING
+// ══════════════════════════════════════════
+const SHOPPING_BASE = [
+  {id:'s1', name:'Rolled oats', qty:'2 lbs', store:'WinCo (bulk)', note:'', auto:false},
+  {id:'s2', name:'Basmati rice', qty:'3–4 lbs', store:'WinCo (bulk)', note:''},
+  {id:'s3', name:'Red lentils', qty:'1–2 lbs', store:'WinCo (bulk)', note:''},
+  {id:'s4', name:'Green lentils', qty:'1 lb', store:'WinCo (bulk)', note:''},
+  {id:'s5', name:'Dried chickpeas', qty:'1 lb', store:'WinCo (bulk)', note:'Cook Sunday, freeze'},
+  {id:'s6', name:'Dark rye flour', qty:'2 lbs', store:'WinCo (bulk)', note:''},
+  {id:'s7', name:'Bread flour', qty:'5 lbs', store:'WinCo (bulk)', note:'Strong/high-protein'},
+  {id:'s8', name:'Hemp seeds', qty:'½ lb', store:'WinCo (bulk)', note:'Critical for Maxi protein'},
+  {id:'s9', name:'Pumpkin seeds', qty:'½ lb', store:'WinCo (bulk)', note:''},
+  {id:'s10', name:'Free-range eggs', qty:'2 dozen', store:'Fred Meyer', note:'Organic if budget allows'},
+  {id:'s11', name:'Chicken thighs (bone-in)', qty:'~3 lbs', store:'Fred Meyer', note:'USDA/natural'},
+  {id:'s12', name:'Firm tofu', qty:'2 packs', store:'Fred Meyer', note:'For Maxi'},
+  {id:'s13', name:'Tempeh', qty:'1–2 packs', store:'Fred Meyer', note:'Best protein for Maxi'},
+  {id:'s14', name:'Whole milk', qty:'1–1.5 gallons', store:'Fred Meyer', note:'For yoghurt-making too'},
+  {id:'s15', name:'Butter (unsalted)', qty:'1 lb', store:'Fred Meyer', note:''},
+  {id:'s16', name:'Onions (yellow)', qty:'3 lbs', store:'Fred Meyer', note:''},
+  {id:'s17', name:'Garlic', qty:'2 heads', store:'Fred Meyer', note:''},
+  {id:'s18', name:'Carrots', qty:'2 lbs', store:'Fred Meyer', note:''},
+  {id:'s19', name:'Potatoes (Yukon Gold)', qty:'5 lbs', store:'Fred Meyer', note:''},
+  {id:'s20', name:'Bananas', qty:'2 bunches', store:'Fred Meyer', note:''},
+  {id:'s21', name:'Canned tomatoes', qty:'3 cans', store:'WinCo (bulk)', note:''},
+  {id:'s22', name:'Seasonal veg (whatever\'s on sale)', qty:'~$8 worth', store:'Fred Meyer', note:'Flex item'},
+  {id:'s23', name:'Edamame (frozen)', qty:'1 lb', store:'Fred Meyer', note:'Easy Maxi protein snack'},
+  {id:'s24', name:'Lemons', qty:'4–6', store:'Fred Meyer', note:''},
+  {id:'s25', name:'Cornflakes (for Maxi)', qty:'1 box', store:'Fred Meyer', note:'Maxi breakfast'},
+];
+
+function renderShopping() {
+  updateShoppingAuto();
+  const container = document.getElementById('shopping-container');
+  const allItems = [...SHOPPING_BASE, ...state.shopping.manual];
+
+  // Add auto-generated low stock items
+  const autoItems = state.pantry
+    .filter(p => parseFloat(p.qty) <= parseFloat(p.min) && parseFloat(p.min) > 0)
+    .map(p => ({
+      id: 'auto_'+p.id,
+      name: p.name + ' (low stock)',
+      qty: 'Need: ' + (parseFloat(p.min)*2) + ' ' + p.unit,
+      store: p.store,
+      note: '',
+      auto: true
+    }));
+
+  const wincoItems = [...allItems.filter(i => i.store === 'WinCo (bulk)'), ...autoItems.filter(i => i.store === 'WinCo (bulk)')];
+  const fmItems = [...allItems.filter(i => i.store === 'Fred Meyer'), ...autoItems.filter(i => i.store === 'Fred Meyer')];
+  const otherItems = [...allItems.filter(i => i.store !== 'WinCo (bulk)' && i.store !== 'Fred Meyer'), ...autoItems.filter(i => i.store !== 'WinCo (bulk)' && i.store !== 'Fred Meyer')];
+
+  const renderStore = (label, icon, items) => {
+    if (!items.length) return '';
+    return `
+      <div class="shop-section">
+        <div class="shop-section-header">
+          <span>${icon}</span> ${label}
+          <span class="shop-section-store">${items.filter(i => !state.shopping.checked[i.id]).length} items remaining</span>
+        </div>
+        <div class="shop-items-list">
+          ${items.map(i => `
+            <div class="shop-item ${state.shopping.checked[i.id] ? 'checked' : ''}" id="shop-${i.id}">
+              <div class="shop-check ${state.shopping.checked[i.id] ? 'done' : ''}" onclick="checkShopItem('${i.id}')">
+                ${state.shopping.checked[i.id] ? '✓' : ''}
+              </div>
+              <div class="shop-item-name">
+                ${i.name}
+                ${i.auto ? '<span class="shop-item-auto">AUTO</span>' : ''}
+              </div>
+              <div class="shop-item-qty">${i.qty}</div>
+              <div class="shop-item-note">${i.note}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  };
+
+  container.innerHTML =
+    renderStore('WinCo — Bulk Section (Sunday)', '🟠', wincoItems) +
+    renderStore('Fred Meyer — Fresh + Protein (Sunday + Wed top-up)', '🔴', fmItems) +
+    (otherItems.length ? renderStore('Other', '📦', otherItems) : '');
+}
+
+function checkShopItem(id) {
+  state.shopping.checked[id] = !state.shopping.checked[id];
+  if (state.shopping.checked[id]) {
+    // When checked, try to restock pantry item
+    const pantryMatch = state.pantry.find(p => SHOPPING_BASE.some(s => s.id === id && s.name.toLowerCase().includes(p.name.toLowerCase().split(' ')[0])));
+    if (pantryMatch && parseFloat(pantryMatch.qty) < parseFloat(pantryMatch.min) * 3) {
+      pantryMatch.qty = parseFloat(pantryMatch.min) * 3;
+    }
+  }
+  saveState();
+  renderShopping();
+}
+
+function updateShoppingAuto() {
+  // Handled inline in renderShopping
+}
+
+function clearChecked() {
+  state.shopping.checked = {};
+  saveState();
+  renderShopping();
+  showToast('Shopping list reset');
+}
+
+function regenerateShopping() {
+  state.shopping.checked = {};
+  saveState();
+  renderShopping();
+  showToast('↻ Shopping list regenerated from pantry');
+}
+
+function addShopItem() {
+  const name = prompt('Item name:');
+  if (!name) return;
+  const qty = prompt('Quantity:') || '1';
+  const store = prompt('Store (WinCo (bulk) / Fred Meyer):') || 'Fred Meyer';
+  state.shopping.manual.push({id:'manual_'+Date.now(), name, qty, store, note:'Manual add'});
+  saveState();
+  renderShopping();
+}
+
+function printShopping() {
+  window.print();
+}
+
+// ══════════════════════════════════════════
+// PROTEIN TRACKER
+// ══════════════════════════════════════════
+const PROTEIN_SOURCES = [
+  {name:'Hemp seeds (3 tbsp)', g:10},
+  {name:'Eggs x2', g:12},
+  {name:'Firm tofu (150g)', g:15},
+  {name:'Tempeh (100g)', g:19},
+  {name:'Red lentils (150g cooked)', g:13},
+  {name:'Chickpeas (150g cooked)', g:11},
+  {name:'Edamame (100g)', g:11},
+  {name:'Greek yoghurt (150g)', g:15},
+  {name:'Cornflakes + milk', g:7},
+  {name:'Miso soup + tofu', g:8},
+  {name:'Dal dinner portion', g:16},
+  {name:'Egg fried rice', g:14},
+];
+
+const DAYS_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function renderProtein() {
+  // Week bars
+  const barsEl = document.getElementById('protein-week-bars');
+  barsEl.innerHTML = DAYS_ORDER.map(d => {
+    const data = state.protein[d] || {sources:[]};
+    const total = data.sources.reduce((a,s) => a+s.g, 0);
+    const pct = Math.min(100, (total/90)*100);
+    const color = total >= 75 ? 'good' : total >= 50 ? 'mid' : 'low';
+    return `
+      <div class="protein-day">
+        <div class="protein-day-header">
+          <span class="protein-day-label">${d}</span>
+          <span class="protein-day-total ${color === 'good' ? 'tag-ok' : color === 'mid' ? 'tag-warn' : 'tag-low'}" style="padding:2px 8px; border-radius:10px; font-size:12px; font-family:'IBM Plex Mono',monospace;">
+            ${total}g / 90g
+          </span>
+        </div>
+        <div class="protein-bar-wrap">
+          <div class="protein-bar ${color}" style="width:${pct}%"></div>
+        </div>
+        <div class="protein-sources">
+          ${(data.sources||[]).map(s => `<span class="protein-source added">${s.name} (+${s.g}g)</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Daily log
+  const logEl = document.getElementById('protein-daily-log');
+  logEl.innerHTML = DAYS_ORDER.map(d => {
+    const data = state.protein[d] || {sources:[]};
+    const total = data.sources.reduce((a,s) => a+s.g, 0);
+    const pct = Math.min(100, (total/90)*100);
+    const color = total >= 75 ? 'good' : total >= 50 ? 'mid' : 'low';
+    return `
+      <div style="margin-bottom:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <strong>${d}ursday</strong>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:13px;">${total}g <span style="color:var(--mid)">/ 90g target</span></span>
+        </div>
+        <div class="protein-bar-wrap" style="margin-bottom:10px;">
+          <div class="protein-bar ${color}" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:12px; color:var(--mid); margin-bottom:8px;">Click to add protein source:</div>
+        <div class="protein-sources">
+          ${PROTEIN_SOURCES.map(s => `
+            <span class="protein-source ${data.sources.some(x=>x.name===s.name)?'added':''}"
+              onclick="toggleProtein('${d}', '${s.name}', ${s.g})">
+              ${s.name} (+${s.g}g)
+            </span>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('').replace(/ursday/g,'').replace(/Monursday/g,'Mon').replace(/Tueursday/g,'Tue').replace(/Wedursday/g,'Wed').replace(/Friursday/g,'Fri').replace(/Satursday/g,'Sat').replace(/Sunursday/g,'Sun');
+
+  // Fix day labels in daily log
+  const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  logEl.querySelectorAll('strong').forEach((el,i) => {
+    if (labels[i]) el.textContent = labels[i];
+  });
+}
+
+function toggleProtein(day, name, g) {
+  if (!state.protein[day]) state.protein[day] = {sources:[]};
+  const idx = state.protein[day].sources.findIndex(s => s.name === name);
+  if (idx >= 0) {
+    state.protein[day].sources.splice(idx, 1);
+  } else {
+    state.protein[day].sources.push({name, g});
+  }
+  saveState();
+  renderProtein();
+}
+
+function resetProteinWeek() {
+  DAYS_ORDER.forEach(d => state.protein[d] = {sources:[]});
+  saveState();
+  renderProtein();
+  showToast('Protein week reset');
+}
+
+// ══════════════════════════════════════════
+// SCHEDULE
+// ══════════════════════════════════════════
+function getScheduleTasks() {
+  return [
+    {day:'Monday', tasks:[
+      {id:'mon1', label:'Cook dal + roti', type:'cook', time:'6:30 PM'},
+      {id:'mon2', label:'Check yoghurt supply', type:'prep', time:'morning'},
+    ]},
+    {day:'Tuesday', tasks:[
+      {id:'tue1', label:'Roast chicken thighs', type:'cook', time:'6:00 PM'},
+      {id:'tue2', label:'Save bones for broth!', type:'prep', time:'after dinner'},
+    ]},
+    {day:'Wednesday', tasks:[
+      {id:'wed1', label:'Instant Pot broth (60 min)', type:'prep', time:'morning/afternoon'},
+      {id:'wed2', label:'Fred Meyer top-up shop', type:'shop', time:'after school/work'},
+      {id:'wed3', label:'Cook noodle soup', type:'cook', time:'6:30 PM'},
+    ]},
+    {day:'Thursday', tasks:[
+      {id:'thu1', label:'Maxi cooks shakshuka 🧑‍🍳', type:'cook', time:'6:30 PM'},
+      {id:'thu2', label:'You supervise, he leads', type:'prep', time:'6:00 PM'},
+    ]},
+    {day:'Friday', tasks:[
+      {id:'fri1', label:'Cook salmon + lentils', type:'cook', time:'6:30 PM'},
+      {id:'fri2', label:'START SKYR + GREEK YOGHURT', type:'yoghurt', time:'9:00 PM'},
+      {id:'fri3', label:'Heat 3.5L milk → cool → inoculate → oven overnight', type:'yoghurt', time:'note'},
+      {id:'fri4', label:'Check kefir — strain if ready, refeed grains', type:'yoghurt', time:'9:30 PM'},
+    ]},
+    {day:'Saturday', tasks:[
+      {id:'sat1', label:'Split yoghurt batch → strain half 3 hrs (Greek) half 12 hrs (Skyr)', type:'yoghurt', time:'7:00 AM'},
+      {id:'sat2', label:'Greek yoghurt done → jar it', type:'yoghurt', time:'10:00 AM'},
+      {id:'sat3', label:'Feed sourdough starter', type:'bread', time:'8:00 AM'},
+      {id:'sat4', label:'Weekend lunch: lentil soup', type:'cook', time:'12:00 PM'},
+      {id:'sat5', label:'Skyr done straining → jar it, save whey for bread', type:'yoghurt', time:'7:00 PM'},
+      {id:'sat6', label:'Cook stew (Instant Pot)', type:'cook', time:'5:00 PM'},
+      {id:'sat7', label:'MIX BREAD DOUGH', type:'bread', time:'7:00 PM'},
+      {id:'sat8', label:'Stretch & fold ×4 over 2 hrs', type:'bread', time:'7–9 PM'},
+      {id:'sat9', label:'Shape batard → banneton → fridge', type:'bread', time:'9:30 PM'},
+    ]},
+    {day:'Sunday', tasks:[
+      {id:'sun1', label:'BAKE BREAD (from cold)', type:'bread', time:'7:00 AM'},
+      {id:'sun2', label:'Big WinCo shop', type:'shop', time:'9:00 AM'},
+      {id:'sun3', label:'Fred Meyer fresh shop', type:'shop', time:'10:30 AM'},
+      {id:'sun4', label:'Cook chickpea batch (IP)', type:'prep', time:'2:00 PM'},
+      {id:'sun5', label:'Portion + freeze chickpeas', type:'prep', time:'3:30 PM'},
+      {id:'sun6', label:'Cook biryani', type:'cook', time:'5:30 PM'},
+      {id:'sun7', label:'Prep overnight oats for Mon', type:'prep', time:'9:00 PM'},
+    ]},
+  ];
+}
+
+function renderSchedule() {
+  const tasks = getScheduleTasks();
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const now = new Date();
+  const today = days[now.getDay() === 0 ? 6 : now.getDay()-1];
+
+  const grid = document.getElementById('schedule-grid');
+  grid.innerHTML = days.map(day => {
+    const dayData = tasks.find(t => t.day === day) || {tasks:[]};
+    return `
+      <div class="sched-day">
+        <div class="sched-day-header ${day === today ? 'today' : ''}">${day.substring(0,3)}${day === today ? ' · Today' : ''}</div>
+        <div class="sched-tasks">
+          ${dayData.tasks.map(t => `
+            <div class="sched-task ${t.type} ${state.schedule.done[t.id] ? 'done' : ''}"
+                 onclick="toggleSchedTask('${t.id}')">
+              <span class="sched-task-time">${t.time}</span>
+              ${t.label}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleSchedTask(id) {
+  state.schedule.done[id] = !state.schedule.done[id];
+  saveState();
+  renderSchedule();
+}
+
+// ══════════════════════════════════════════
+// BREAD
+// ══════════════════════════════════════════
+function showBread(type, btn) {
+  document.querySelectorAll('.bread-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bread-recipe').forEach(r => r.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('bread-'+type).classList.add('active');
+}
+
+// ══════════════════════════════════════════
+// FERMENTS
+// ══════════════════════════════════════════
+function showFerment(type, btn) {
+  document.querySelectorAll('#ferments .bread-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#ferments .bread-recipe').forEach(r => r.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('ferment-'+type).classList.add('active');
+}
+
+function logFerment(type) {
+  if (!state.ferments) state.ferments = {kefir:[], skyr:[], greek:[], starter:[]};
+  const note = prompt('Note (optional, e.g. "2L batch, strained 12hrs"):') || '';
+  state.ferments[type].unshift({date: new Date().toLocaleDateString('en-US'), note});
+  if (state.ferments[type].length > 10) state.ferments[type].pop();
+  saveState();
+  renderFermentLogs();
+  showToast('✓ Batch logged');
+}
+
+function renderFermentLogs() {
+  if (!state.ferments) return;
+  ['kefir','skyr','greek','starter'].forEach(type => {
+    const el = document.getElementById(type+'-log');
+    if (!el) return;
+    const entries = state.ferments[type] || [];
+    if (!entries.length) {
+      el.innerHTML = '<span style="color:var(--muted);">No batches logged yet.</span>';
+      return;
+    }
+    el.innerHTML = entries.map(e =>
+      `<div style="padding:6px 0;border-bottom:1px solid var(--bg);display:flex;gap:12px;">
+        <span style="font-family:'IBM Plex Mono',monospace;color:var(--mid);font-size:12px;white-space:nowrap;">${e.date}</span>
+        <span>${e.note || '—'}</span>
+      </div>`
+    ).join('');
+  });
+}
+
+function renderFermentStatus() {
+  if (!state.ferments) state.ferments = {kefir:[], skyr:[], greek:[], starter:[]};
+  const grid = document.getElementById('ferment-status-grid');
+  if (!grid) return;
+  const items = [
+    {key:'kefir', label:'Kefir', icon:'🥛', note:'24hr cycle · 2–3 tbsp grains'},
+    {key:'skyr', label:'Skyr', icon:'🫙', note:'Weekly · Fri evening batch'},
+    {key:'greek', label:'Greek Yoghurt', icon:'🥄', note:'Weekly · Same batch as skyr'},
+    {key:'starter', label:'Sourdough Starter', icon:'🌾', note:'Feed weekly · Use Sat morning'},
+  ];
+  grid.innerHTML = items.map(item => {
+    const last = state.ferments[item.key]?.[0];
+    const lastDate = last ? last.date : 'Never logged';
+    return `
+      <div class="stat-box" style="cursor:pointer;" onclick="document.querySelectorAll('.nav-btn')[6].click();setTimeout(()=>{document.querySelector('[onclick*=\\'${item.key}\\']')?.click()},100)">
+        <div class="stat-label">${item.icon} ${item.label}</div>
+        <div style="font-size:13px;font-weight:600;margin:4px 0;">${lastDate}</div>
+        <div class="stat-sub">${item.note}</div>
+        <button class="btn btn-sm btn-primary" style="margin-top:8px;width:100%;" onclick="event.stopPropagation();logFerment('${item.key}')">+ Log</button>
+      </div>
+    `;
+  }).join('');
+}
+
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  document.getElementById('topbar-date').textContent = now.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  renderDashboard();
+});
+
+// Close modals on outside click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// Auto-save every 30 seconds
+setInterval(saveState, 30000);
+</script>
+</body>
+</html>
