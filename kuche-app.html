@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Küche">
+<title>Küche · Corvallis Kitchen</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1C1C1E; --ink2: #3A3A3C; --mid: #6C6C70; --muted: #AEAEB2;
+  --border: #D1D1D6; --bg: #F2F2F7; --card: #FFFFFF;
+  --sage: #5B8A5F; --sage-bg: #EAF2EB; --sage-dark: #4a7a4e;
+  --terra: #C0522A; --terra-bg: #FAEBE4;
+  --gold: #B8860B; --gold-bg: #FBF4E0;
+  --blue: #2C6FAC; --blue-bg: #E3EEF8;
+  --red: #C0392B; --red-bg: #FDECEA;
+  --rye: #7B5C3A; --rye-bg: #F5EDE4;
+  --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+.topbar { background: var(--ink); color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 200; }
+.topbar-logo { font-family: 'Lora', serif; font-size: 18px; }
+.topbar-logo span { color: #A8D5AB; }
+.topbar-right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #AEAEB2; }
+.user-badge { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 11px; cursor: pointer; }
+.nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; padding: 0 16px; position: sticky; top: 49px; z-index: 150; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav-btn { padding: 12px 14px; background: none; border: none; border-bottom: 2px solid transparent; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--mid); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+.nav-btn:hover { color: var(--ink); }
+.nav-btn.active { color: var(--sage); border-bottom-color: var(--sage); }
+.main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
+.page-title { font-family: 'Lora', serif; font-size: 22px; margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--mid); margin-bottom: 20px; line-height: 1.5; }
+.card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.card-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 14px 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+@media(max-width:700px) { .grid-2,.grid-3,.grid-4 { grid-template-columns: 1fr; } }
+.stat-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--mid); font-family: 'IBM Plex Mono', monospace; margin-bottom: 5px; }
+.stat-val { font-family: 'Lora', serif; font-size: 26px; line-height: 1; }
+.stat-sub { font-size: 12px; color: var(--mid); margin-top: 3px; }
+.tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; }
+.tag-veg { background: var(--sage-bg); color: var(--sage); }
+.tag-meat { background: var(--terra-bg); color: var(--terra); }
+.tag-warn { background: var(--gold-bg); color: var(--gold); }
+.tag-low { background: var(--red-bg); color: var(--red); }
+.tag-ok { background: var(--sage-bg); color: var(--sage); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; border: none; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.btn-primary { background: var(--sage); color: white; }
+.btn-primary:hover { background: var(--sage-dark); }
+.btn-secondary { background: var(--bg); color: var(--ink); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid #f5c6c2; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-xs { padding: 2px 8px; font-size: 11px; }
+.input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; background: var(--card); color: var(--ink); }
+.input:focus { outline: none; border-color: var(--sage); }
+select.input { cursor: pointer; }
+textarea.input { resize: vertical; min-height: 80px; }
+.form-row { margin-bottom: 12px; }
+.form-label { font-size: 12px; font-weight: 500; margin-bottom: 4px; display: block; color: var(--mid); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-actions { display: flex; gap: 8px; margin-top: 14px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--card); border-radius: 14px; padding: 22px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.modal h3 { font-family: 'Lora', serif; font-size: 18px; margin-bottom: 14px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: white; padding: 10px 20px; border-radius: 40px; font-size: 13px; z-index: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.spice-bar { display: flex; gap: 4px; align-items: center; }
+.spice-dot { width: 10px; height: 10px; border-radius: 50%; }
+.spice-dot.filled { background: var(--sage); }
+.spice-dot.empty { background: var(--border); }
+.spice-dot.orange { background: var(--terra); }
+.spice-dot.red { background: var(--red); }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--mid); font-family: 'IBM Plex Mono', monospace; border-bottom: 1px solid var(--border); background: var(--bg); }
+.table td { padding: 10px 12px; border-bottom: 1px solid var(--bg); vertical-align: middle; }
+.table tr:hover td { background: #fafafa; }
+.qty-control { display: flex; align-items: center; gap: 6px; }
+.qty-btn { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.qty-btn:hover { background: var(--sage); color: white; border-color: var(--sage); }
+.stock-bar { height: 4px; border-radius: 2px; background: var(--bg); overflow: hidden; width: 50px; }
+.stock-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+.shop-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; font-size: 11px; }
+.shop-check.done { background: var(--sage); border-color: var(--sage); color: white; }
+.recipe-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: box-shadow 0.2s; }
+.recipe-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+.recipe-card-head { padding: 14px 16px; }
+.recipe-card-title { font-family: 'Lora', serif; font-size: 16px; margin-bottom: 6px; }
+.recipe-card-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.parse-result { background: var(--bg); border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 12px; line-height: 1.6; color: var(--mid); max-height: 200px; overflow-y: auto; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.tab-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); font-size: 12px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; transition: all 0.15s; }
+.tab-btn.active { background: var(--ink); color: white; border-color: var(--ink); }
+.protein-bar-wrap { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; margin: 4px 0; }
+.protein-bar { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.bar-low { background: var(--red); }
+.bar-mid { background: var(--gold); }
+.bar-good { background: var(--sage); }
+.budget-bar-wrap { height: 12px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.budget-bar { height: 100%; border-radius: 6px; transition: width 0.5s; }
+.login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-card { background: var(--card); border-radius: 16px; padding: 32px; width: 100%; max-width: 380px; box-shadow: var(--shadow); }
+.login-title { font-family: 'Lora', serif; font-size: 28px; margin-bottom: 6px; }
+.login-sub { font-size: 13px; color: var(--mid); margin-bottom: 24px; }
+.section-divider { height: 1px; background: var(--border); margin: 20px 0; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--mid); font-size: 14px; }
+.empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--mid); font-size: 14px; gap: 10px; }
+.track-badge { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-family: 'IBM Plex Mono', monospace; }
+.track-shared { background: var(--blue-bg); color: var(--blue); }
+.track-meat { background: var(--terra-bg); color: var(--terra); }
+.track-veg { background: var(--sage-bg); color: var(--sage); }
+.track-fish { background: var(--blue-bg); color: var(--blue); }
+.alert-box { border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px; }
+.alert-info { background: var(--blue-bg); color: var(--blue); }
+.alert-warn { background: var(--gold-bg); color: var(--gold); }
+.alert-error { background: var(--red-bg); color: var(--red); }
+.unit-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.unit-btn { padding: 4px 12px; background: none; border: none; font-size: 12px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
+.unit-btn.active { background: var(--ink); color: white; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" id="toast"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── SUPABASE ──
+const SUPABASE_URL = 'https://rjglnszletpogjzvxzuk.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqZ2xuc3psZXRwb2dqenZ4enVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMTg0NDAsImV4cCI6MjA5NTg5NDQ0MH0.qQu1XHN04cf6mJq5LguTu0RMgtSYpM4kf6If2LFFNuQ';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── CLAUDE API ──
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+
+// ── UTILS ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+}
+
+const RECIPE_CATEGORIES = {
+  1: { label: 'Standalone Vegetarian', icon: '🌿', color: 'var(--sage)' },
+  2: { label: 'Base + Toppings', icon: '🍕', color: 'var(--blue)' },
+  3: { label: 'Shared Base + Parallel Protein', icon: '🍛', color: 'var(--gold)' },
+  4: { label: 'Parallel Full Recipes', icon: '🫕', color: 'var(--terra)' },
+  5: { label: 'Meat/Fish + Veg Equivalent', icon: '🐟', color: 'var(--terra)' },
+  6: { label: 'Breakfast / School Break', icon: '🌅', color: 'var(--rye)' },
+};
+
+const SPICE_COLORS = { 100: 'var(--sage)', 75: 'var(--sage)', 50: 'var(--gold)', 25: 'var(--terra)', 10: 'var(--red)' };
+const SPICE_LABELS = { 100: 'Full', 75: '75%', 50: '50%', 25: '25% ⚠', 10: '10% 🔴' };
+
+// ── MAIN APP ──
+function App() {
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('dashboard');
+  const [unitPref, setUnitPref] = useState('metric');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+      else setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+      else { setProfile(null); setLoading(false); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function fetchProfile(userId) {
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (data) {
+      setProfile(data);
+      setUnitPref(data.unit_preference || 'metric');
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      const fallback = {
+        id: userId,
+        name: user?.user_metadata?.name || user?.email?.split('@')[0] || 'User',
+        role: user?.user_metadata?.role || 'admin',
+        unit_preference: 'metric',
+        dietary: 'omnivore'
+      };
+      setProfile(fallback);
+    }
+    setLoading(false);
+  }
+
+  if (loading) return <div className="loading">⏳ Loading Küche…</div>;
+  if (!session) return <LoginScreen />;
+
+  const TABS = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'recipes', label: 'Recipes' },
+    { id: 'mealplan', label: 'Meal Plan' },
+    { id: 'pantry', label: 'Pantry' },
+    { id: 'fridge', label: 'Fridge' },
+    { id: 'shopping', label: 'Shopping' },
+    { id: 'budget', label: 'Budget' },
+    { id: 'protein', label: 'Maxi Protein' },
+    { id: 'ferments', label: 'Ferments' },
+  ];
+
+  return (
+    <div>
+      <div className="topbar">
+        <div className="topbar-logo">Küche<span>·</span>Corvallis</div>
+        <div className="topbar-right">
+          <div className="unit-toggle">
+            <button className={`unit-btn ${unitPref==='metric'?'active':''}`} onClick={()=>setUnitPref('metric')}>g/ml</button>
+            <button className={`unit-btn ${unitPref==='american'?'active':''}`} onClick={()=>setUnitPref('american')}>oz/cup</button>
+          </div>
+          <div className="user-badge" onClick={async()=>{await supabase.auth.signOut();}}>
+            {profile?.name || 'User'} · {profile?.role} ↩
+          </div>
+        </div>
+      </div>
+      <nav className="nav">
+        {TABS.map(t => (
+          <button key={t.id} className={`nav-btn ${tab===t.id?'active':''}`} onClick={()=>setTab(t.id)}>{t.label}</button>
+        ))}
+      </nav>
+      <div className="main">
+        {tab==='dashboard' && <Dashboard profile={profile} setTab={setTab} unitPref={unitPref} />}
+        {tab==='recipes' && <Recipes profile={profile} unitPref={unitPref} />}
+        {tab==='mealplan' && <MealPlan profile={profile} unitPref={unitPref} />}
+        {tab==='pantry' && <Pantry profile={profile} unitPref={unitPref} />}
+        {tab==='fridge' && <Fridge profile={profile} />}
+        {tab==='shopping' && <Shopping profile={profile} unitPref={unitPref} />}
+        {tab==='budget' && <Budget profile={profile} />}
+        {tab==='protein' && <ProteinTracker profile={profile} />}
+        {tab==='ferments' && <Ferments profile={profile} />}
+      </div>
+    </div>
+  );
+}
+
+// ── LOGIN ──
+function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [mode, setMode] = useState('login');
+  const [role, setRole] = useState('member');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true); setMsg('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setMsg(error.message);
+    setLoading(false);
+  }
+
+  async function handleSignup(e) {
+    e.preventDefault();
+    setLoading(true); setMsg('');
+    const { error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { name, role } }
+    });
+    if (error) setMsg(error.message);
+    else setMsg('Account created! Check your email to confirm.');
+    setLoading(false);
+  }
+
+  return (
+    <div className="login-screen">
+      <div className="login-card">
+        <div style={{fontSize:32, marginBottom:8}}>🍞</div>
+        <div className="login-title">Küche · Corvallis</div>
+        <div className="login-sub">Your household kitchen manager</div>
+        {msg && <div className="alert-box alert-info" style={{marginBottom:12}}>{msg}</div>}
+        <form onSubmit={mode==='login'?handleLogin:handleSignup}>
+          {mode==='signup' && (
+            <>
+              <div className="form-row">
+                <label className="form-label">Your Name</label>
+                <input className="input" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Jens" required />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Role</label>
+                <select className="input" value={role} onChange={e=>setRole(e.target.value)}>
+                  <option value="admin">Admin (Jens)</option>
+                  <option value="member">Household Member (Caleb / Maxi)</option>
+                  <option value="guest">Guest (Deborah)</option>
+                </select>
+              </div>
+            </>
+          )}
+          <div className="form-row">
+            <label className="form-label">Email</label>
+            <input className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
+          </div>
+          <div className="form-row">
+            <label className="form-label">Password</label>
+            <input className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
+          </div>
+          <button className="btn btn-primary" style={{width:'100%', justifyContent:'center'}} disabled={loading}>
+            {loading ? '...' : mode==='login' ? 'Sign In' : 'Create Account'}
+          </button>
+        </form>
+        <div className="section-divider" />
+        <button className="btn btn-secondary" style={{width:'100%', justifyContent:'center'}} onClick={()=>setMode(mode==='login'?'signup':'login')}>
+          {mode==='login' ? 'Create new account' : 'Back to sign in'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ──
+function Dashboard({ profile, setTab, unitPref }) {
+  const [lowStock, setLowStock] = useState([]);
+  const [lowSpices, setLowSpices] = useState([]);
+  const [leftovers, setLeftovers] = useState([]);
+  const [todayProtein, setTodayProtein] = useState(0);
+  const [weekBudget, setWeekBudget] = useState(0);
+
+  useEffect(() => {
+    const now = new Date();
+    // Low pantry
+    supabase.from('pantry_items').select('*').eq('is_spice', false).then(({ data }) => {
+      if (data) setLowStock(data.filter(p => parseFloat(p.quantity_metric) <= parseFloat(p.minimum_threshold) && parseFloat(p.minimum_threshold) > 0));
+    });
+    // Low spices
+    supabase.from('pantry_items').select('*').eq('is_spice', true).then(({ data }) => {
+      if (data) setLowSpices(data.filter(p => p.spice_level <= 25));
+    });
+    // Leftovers
+    supabase.from('fridge_items').select('*').eq('item_type', 'leftover').then(({ data }) => {
+      if (data) setLeftovers(data);
+    });
+    // Today protein (Maxi)
+    const today = now.toISOString().split('T')[0];
+    supabase.from('protein_logs').select('protein_g').eq('log_date', today).then(({ data }) => {
+      if (data) setTodayProtein(data.reduce((a, r) => a + r.protein_g, 0));
+    });
+    // Week budget
+    const weekStart = new Date(now.setDate(now.getDate() - now.getDay())).toISOString().split('T')[0];
+    supabase.from('budget_entries').select('amount').gte('entry_date', weekStart).then(({ data }) => {
+      if (data) setWeekBudget(data.reduce((a, r) => a + parseFloat(r.amount), 0));
+    });
+  }, []);
+
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const today = days[new Date().getDay()];
+  const proteinPct = Math.min(100, (todayProtein/90)*100);
+  const proteinColor = todayProtein >= 75 ? 'var(--sage)' : todayProtein >= 50 ? 'var(--gold)' : 'var(--red)';
+
+  return (
+    <div>
+      <h1 className="page-title">Good morning, {profile?.name}.</h1>
+      <p className="page-sub">Corvallis, Oregon · {new Date().toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}</p>
+
+      <div className="grid-4" style={{marginBottom:16}}>
+        <div className="stat-box">
+          <div className="stat-label">Today</div>
+          <div className="stat-val" style={{fontSize:16}}>{today}</div>
+          <div className="stat-sub">Corvallis, OR</div>
+        </div>
+        <div className="stat-box" onClick={()=>setTab('protein')} style={{cursor:'pointer'}}>
+          <div className="stat-label">Maxi Protein</div>
+          <div className="stat-val" style={{color:proteinColor}}>{todayProtein}g</div>
+          <div className="protein-bar-wrap"><div className="protein-bar" style={{width:proteinPct+'%', background:proteinColor}}></div></div>
+          <div className="stat-sub">Target: 90g/day</div>
+        </div>
+        <div className="stat-box" onClick={()=>setTab('shopping')} style={{cursor:'pointer'}}>
+          <div className="stat-label">Low Stock</div>
+          <div className="stat-val" style={{color: lowStock.length+lowSpices.length > 0 ? 'var(--gold)' : 'var(--sage)'}}>{lowStock.length + lowSpices.length}</div>
+          <div className="stat-sub">{lowStock.length} pantry + {lowSpices.length} spices</div>
+        </div>
+        <div className="stat-box" onClick={()=>setTab('budget')} style={{cursor:'pointer'}}>
+          <div className="stat-label">This Week</div>
+          <div className="stat-val" style={{color: weekBudget > 120 ? 'var(--red)' : 'var(--sage)'}}>
+            ${weekBudget.toFixed(0)}
+          </div>
+          <div className="stat-sub">Target: ~$105/week</div>
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header"><div className="card-title">⚠️ Low Stock</div><button className="btn btn-sm btn-primary" onClick={()=>setTab('shopping')}>Shopping List</button></div>
+          <div className="card-body">
+            {lowStock.length === 0 && lowSpices.length === 0
+              ? <div style={{color:'var(--sage)', fontSize:13}}>✓ All items well stocked</div>
+              : <div style={{fontSize:13, lineHeight:1.8}}>
+                  {lowStock.map(p => <div key={p.id}>⚠️ <strong>{p.name}</strong> — {p.quantity_metric} {p.unit_metric}</div>)}
+                  {lowSpices.map(p => <div key={p.id} style={{color: p.spice_level <= 10 ? 'var(--red)' : 'var(--terra)'}}>
+                    {p.spice_level <= 10 ? '🔴' : '🟠'} <strong>{p.name}</strong> — {SPICE_LABELS[p.spice_level]}
+                  </div>)}
+                </div>
+            }
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-header"><div className="card-title">🥡 Fridge Leftovers</div><button className="btn btn-sm btn-secondary" onClick={()=>setTab('fridge')}>View Fridge</button></div>
+          <div className="card-body">
+            {leftovers.length === 0
+              ? <div style={{color:'var(--mid)', fontSize:13}}>No leftovers logged</div>
+              : leftovers.map(l => {
+                  const age = Math.floor((Date.now() - new Date(l.added_date)) / 86400000);
+                  return <div key={l.id} style={{fontSize:13, padding:'4px 0', borderBottom:'1px solid var(--bg)'}}>
+                    <strong>{l.name}</strong> <span style={{color:'var(--mid)'}}>— {l.quantity} · {age}d ago</span>
+                    {age >= 2 && <span className="tag" style={{marginLeft:6, background:'var(--gold-bg)', color:'var(--gold)'}}>Use soon</span>}
+                  </div>;
+                })
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RECIPES ──
+function Recipes({ profile, unitPref }) {
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [showDetail, setShowDetail] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { fetchRecipes(); }, []);
+
+  async function fetchRecipes() {
+    setLoading(true);
+    const { data } = await supabase.from('recipes').select('*').order('created_at', { ascending: false });
+    setRecipes(data || []);
+    setLoading(false);
+  }
+
+  const filtered = recipes.filter(r => {
+    const matchFilter = filter === 'all' || r.cuisine === filter ||
+      (filter === 'veg' && r.dietary_tags?.includes('vegetarian')) ||
+      (filter === 'bulk' && r.is_bulk_cook);
+    const matchSearch = !search || r.title.toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+
+  const cuisines = [...new Set(recipes.map(r => r.cuisine).filter(Boolean))];
+
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
+        <h1 className="page-title">Recipes</h1>
+        {(profile?.role === 'admin' || profile?.role === 'guest') &&
+          <button className="btn btn-primary" onClick={()=>setShowAdd(true)}>+ Add Recipe</button>
+        }
+      </div>
+      <p className="page-sub">Paste any recipe — Claude parses and organises it automatically.</p>
+
+      <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
+        <input className="input" style={{flex:1, minWidth:180}} placeholder="Search recipes…" value={search} onChange={e=>setSearch(e.target.value)} />
+      </div>
+
+      <div className="tabs">
+        {['all','veg','bulk',...cuisines].map(f => (
+          <button key={f} className={`tab-btn ${filter===f?'active':''}`} onClick={()=>setFilter(f)}>
+            {f === 'all' ? 'All' : f === 'veg' ? '🌿 Vegetarian' : f === 'bulk' ? '🥘 Bulk Cook' : f}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <div className="loading">Loading recipes…</div> :
+        filtered.length === 0 ?
+          <div className="empty-state">
+            <div className="empty-state-icon">📖</div>
+            <div>No recipes yet. Add your first one!</div>
+          </div>
+        :
+          <div className="recipe-grid">
+            {filtered.map(r => <RecipeCard key={r.id} recipe={r} onClick={()=>setShowDetail(r)} unitPref={unitPref} />)}
+          </div>
+      }
+
+      {showAdd && <AddRecipeModal profile={profile} onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchRecipes();showToast('✓ Recipe saved!');}} />}
+      {showDetail && <RecipeDetailModal recipe={showDetail} onClose={()=>setShowDetail(null)} profile={profile} unitPref={unitPref} />}
+    </div>
+  );
+}
+
+function RecipeCard({ recipe, onClick, unitPref }) {
+  const cat = RECIPE_CATEGORIES[recipe.category] || {};
+  return (
+    <div className="recipe-card" onClick={onClick} style={{cursor:'pointer'}}>
+      <div className="recipe-card-head">
+        <div className="recipe-card-title">{recipe.title}</div>
+        <div className="recipe-card-meta">
+          <span className="tag" style={{background:'var(--bg)', color:'var(--mid)'}}>{cat.icon} {cat.label}</span>
+          {recipe.cuisine && <span className="tag" style={{background:'var(--bg)', color:'var(--mid)'}}>{recipe.cuisine}</span>}
+          {recipe.is_bulk_cook && <span className="tag tag-warn">🥘 {recipe.bulk_days}d bulk</span>}
+          {recipe.dietary_tags?.includes('vegetarian') && <span className="tag tag-veg">🌿 Veg</span>}
+          {recipe.average_rating && <span className="tag" style={{background:'var(--gold-bg)', color:'var(--gold)'}}>⭐ {parseFloat(recipe.average_rating).toFixed(1)}</span>}
+        </div>
+        {recipe.description && <p style={{fontSize:12, color:'var(--mid)', marginTop:8, lineHeight:1.5}}>{recipe.description.substring(0,100)}{recipe.description.length>100?'…':''}</p>}
+      </div>
+      <div style={{padding:'8px 16px', borderTop:'1px solid var(--bg)', display:'flex', gap:12, fontSize:11, color:'var(--muted)', fontFamily:'IBM Plex Mono, monospace'}}>
+        {recipe.prep_time_minutes && <span>Prep: {recipe.prep_time_minutes}min</span>}
+        {recipe.cook_time_minutes && <span>Cook: {recipe.cook_time_minutes}min</span>}
+        {recipe.maxi_protein_g && <span style={{color:'var(--sage)'}}>Maxi: ~{recipe.maxi_protein_g}g protein</span>}
+      </div>
+    </div>
+  );
+}
+
+function AddRecipeModal({ profile, onClose, onSaved }) {
+  const [step, setStep] = useState('paste'); // paste → parsing → review → save
+  const [rawText, setRawText] = useState('');
+  const [parsed, setParsed] = useState(null);
+  const [parsing, setParsing] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    title: '', description: '', category: 1, cuisine: 'Other',
+    difficulty: 'medium', prep_time_minutes: '', cook_time_minutes: '',
+    serves: 3, is_bulk_cook: false, bulk_days: 1,
+    dietary_tags: [], meal_type: [],
+    maxi_protein_g: '', youtube_url: '', is_public: false
+  });
+
+  async function parseRecipe() {
+    if (!rawText.trim()) return;
+    setParsing(true); setError('');
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 1000,
+          system: `You are a recipe parser. Given any recipe text, extract and return ONLY valid JSON with this structure:
+{
+  "title": "Recipe name",
+  "description": "1-2 sentence description",
+  "cuisine": "Italian|Indian|Mexican|Japanese|German|Middle Eastern|American|Thai|Chinese|Greek|Other",
+  "difficulty": "easy|medium|involved",
+  "prep_time_minutes": number,
+  "cook_time_minutes": number,
+  "serves": number,
+  "dietary_tags": ["vegetarian"|"meat-optional"|"fish-optional"|"meat-only"|"fish-only"],
+  "meal_type": ["breakfast"|"school_break"|"weekend_lunch"|"dinner"],
+  "category": 1-6,
+  "is_bulk_cook": boolean,
+  "bulk_days": number,
+  "maxi_protein_g": estimated protein in grams per serving for vegetarian version,
+  "was_reorganised": boolean,
+  "parser_notes": "brief note on what was changed or if well-structured",
+  "ingredients": [
+    {"name": "ingredient", "track": "shared|meat|fish|veg|topping", "quantity_metric": number, "unit_metric": "g|kg|ml|l|count|tbsp|tsp", "quantity_american": number, "unit_american": "string", "preparation_note": "diced/sliced/etc"}
+  ],
+  "instructions": {
+    "shared": ["step 1", "step 2"],
+    "meat_track": ["step 1"],
+    "veg_track": ["step 1"],
+    "fish_track": ["step 1"]
+  }
+}
+Category guide: 1=fully vegetarian all eat same, 2=shared base+different toppings, 3=shared base+parallel protein cooked separately, 4=parallel full recipes same structure, 5=meat/fish main+designed veg equivalent, 6=breakfast or school break.
+Reorganise instructions into logical cooking order if poorly written. Keep well-written recipes as-is. Return ONLY JSON, no markdown.`,
+          messages: [{ role: 'user', content: rawText }]
+        })
+      });
+      const data = await response.json();
+      const text = data.content?.[0]?.text || '';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const result = JSON.parse(clean);
+      setParsed(result);
+      setForm(f => ({...f,
+        title: result.title || '',
+        description: result.description || '',
+        cuisine: result.cuisine || 'Other',
+        difficulty: result.difficulty || 'medium',
+        prep_time_minutes: result.prep_time_minutes || '',
+        cook_time_minutes: result.cook_time_minutes || '',
+        serves: result.serves || 3,
+        category: result.category || 1,
+        is_bulk_cook: result.is_bulk_cook || false,
+        bulk_days: result.bulk_days || 1,
+        dietary_tags: result.dietary_tags || [],
+        meal_type: result.meal_type || [],
+        maxi_protein_g: result.maxi_protein_g || '',
+      }));
+      setStep('review');
+    } catch(e) {
+      setError('Parsing failed — please check the recipe text and try again.');
+      console.error(e);
+    }
+    setParsing(false);
+  }
+
+  async function saveRecipe() {
+    const { data: recipe, error: recipeError } = await supabase.from('recipes').insert([{
+      ...form,
+      original_text: rawText,
+      instructions: parsed?.instructions || {},
+      parser_notes: parsed?.parser_notes || '',
+      was_reorganised: parsed?.was_reorganised || false,
+      author_id: (await supabase.auth.getUser()).data.user?.id,
+    }]).select().single();
+
+    if (recipeError) { showToast('Error saving recipe'); return; }
+
+    // Save ingredients
+    if (parsed?.ingredients?.length) {
+      const ingredients = parsed.ingredients.map((ing, i) => ({
+        recipe_id: recipe.id,
+        name: ing.name,
+        track: ing.track || 'shared',
+        quantity_metric: ing.quantity_metric,
+        unit_metric: ing.unit_metric,
+        quantity_american: ing.quantity_american,
+        unit_american: ing.unit_american,
+        preparation_note: ing.preparation_note,
+        sort_order: i,
+      }));
+      await supabase.from('recipe_ingredients').insert(ingredients);
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>Add Recipe</h3>
+
+        {step === 'paste' && (
+          <>
+            <div className="alert-box alert-info" style={{marginBottom:12}}>
+              Paste any recipe — from a website, cookbook, or your own notes. Claude will parse, organise, and structure it automatically.
+            </div>
+            {error && <div className="alert-box alert-error">{error}</div>}
+            <div className="form-row">
+              <label className="form-label">Paste Recipe Text</label>
+              <textarea className="input" style={{minHeight:200}} value={rawText} onChange={e=>setRawText(e.target.value)} placeholder="Paste any recipe here…" />
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-primary" onClick={parseRecipe} disabled={parsing || !rawText.trim()}>
+                {parsing ? '⏳ Parsing…' : '✨ Parse with Claude'}
+              </button>
+              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            </div>
+          </>
+        )}
+
+        {step === 'review' && parsed && (
+          <>
+            {parsed.parser_notes && (
+              <div className="alert-box alert-info" style={{marginBottom:12}}>
+                🤖 {parsed.parser_notes} {parsed.was_reorganised && '· Instructions were reorganised into logical cooking order.'}
+              </div>
+            )}
+            <div className="form-row">
+              <label className="form-label">Title</label>
+              <input className="input" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} />
+            </div>
+            <div className="form-row">
+              <label className="form-label">Description</label>
+              <textarea className="input" style={{minHeight:60}} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} />
+            </div>
+            <div className="grid-2">
+              <div className="form-row">
+                <label className="form-label">Category</label>
+                <select className="input" value={form.category} onChange={e=>setForm(f=>({...f,category:parseInt(e.target.value)}))}>
+                  {Object.entries(RECIPE_CATEGORIES).map(([k,v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+                </select>
+              </div>
+              <div className="form-row">
+                <label className="form-label">Cuisine</label>
+                <select className="input" value={form.cuisine} onChange={e=>setForm(f=>({...f,cuisine:e.target.value}))}>
+                  {['Italian','Indian','Mexican','Japanese','German','Middle Eastern','American','Thai','Chinese','Greek','Other'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="form-row">
+                <label className="form-label">Prep (min)</label>
+                <input className="input" type="number" value={form.prep_time_minutes} onChange={e=>setForm(f=>({...f,prep_time_minutes:e.target.value}))} />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Cook (min)</label>
+                <input className="input" type="number" value={form.cook_time_minutes} onChange={e=>setForm(f=>({...f,cook_time_minutes:e.target.value}))} />
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="form-row">
+                <label className="form-label">Serves</label>
+                <input className="input" type="number" value={form.serves} onChange={e=>setForm(f=>({...f,serves:e.target.value}))} />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Maxi Protein (g)</label>
+                <input className="input" type="number" value={form.maxi_protein_g} onChange={e=>setForm(f=>({...f,maxi_protein_g:e.target.value}))} />
+              </div>
+            </div>
+            <div className="form-row" style={{display:'flex', alignItems:'center', gap:8}}>
+              <input type="checkbox" id="bulk" checked={form.is_bulk_cook} onChange={e=>setForm(f=>({...f,is_bulk_cook:e.target.checked}))} />
+              <label htmlFor="bulk" style={{fontSize:13}}>Bulk cook — lasts</label>
+              <input className="input" type="number" style={{width:60}} value={form.bulk_days} onChange={e=>setForm(f=>({...f,bulk_days:e.target.value}))} />
+              <span style={{fontSize:13}}>days</span>
+            </div>
+
+            {parsed.ingredients?.length > 0 && (
+              <div style={{marginBottom:12}}>
+                <div className="form-label" style={{marginBottom:6}}>Parsed Ingredients ({parsed.ingredients.length})</div>
+                <div style={{background:'var(--bg)', borderRadius:8, padding:10, maxHeight:150, overflowY:'auto', fontSize:12, lineHeight:1.8}}>
+                  {parsed.ingredients.map((ing, i) => (
+                    <div key={i}>
+                      <span className={`track-badge track-${ing.track}`}>{ing.track}</span>{' '}
+                      {ing.quantity_metric && <strong>{ing.quantity_metric}{ing.unit_metric}</strong>}{' '}
+                      {ing.name}{ing.preparation_note && <span style={{color:'var(--mid)'}}> · {ing.preparation_note}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button className="btn btn-primary" onClick={saveRecipe}>Save Recipe</button>
+              <button className="btn btn-secondary" onClick={()=>setStep('paste')}>← Re-paste</button>
+              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecipeDetailModal({ recipe, onClose, profile, unitPref }) {
+  const [ingredients, setIngredients] = useState([]);
+  const [ratings, setRatings] = useState([]);
+  const [myRating, setMyRating] = useState(0);
+  const [comment, setComment] = useState('');
+
+  useEffect(() => {
+    supabase.from('recipe_ingredients').select('*').eq('recipe_id', recipe.id).order('sort_order').then(({data}) => setIngredients(data||[]));
+    supabase.from('recipe_ratings').select('*, profiles(name)').eq('recipe_id', recipe.id).then(({data}) => setRatings(data||[]));
+  }, [recipe.id]);
+
+  async function submitRating() {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    await supabase.from('recipe_ratings').upsert({ recipe_id: recipe.id, user_id: userId, stars: myRating, comment });
+    showToast('✓ Rating saved');
+    setComment(''); setMyRating(0);
+  }
+
+  const cat = RECIPE_CATEGORIES[recipe.category] || {};
+  const tracks = [...new Set(ingredients.map(i => i.track))];
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal" style={{maxWidth:600}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:12}}>
+          <h3 style={{flex:1}}>{recipe.title}</h3>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:12}}>
+          <span className="tag" style={{background:'var(--bg)', color:'var(--mid)'}}>{cat.icon} {cat.label}</span>
+          <span className="tag" style={{background:'var(--bg)', color:'var(--mid)'}}>{recipe.cuisine}</span>
+          {recipe.is_bulk_cook && <span className="tag tag-warn">🥘 {recipe.bulk_days}d bulk</span>}
+          {recipe.prep_time_minutes && <span className="tag" style={{background:'var(--bg)', color:'var(--mid)'}}>Prep: {recipe.prep_time_minutes}min</span>}
+          {recipe.cook_time_minutes && <span className="tag" style={{background:'var(--bg)', color:'var(--mid)'}}>Cook: {recipe.cook_time_minutes}min</span>}
+          {recipe.maxi_protein_g && <span className="tag tag-veg">Maxi: ~{recipe.maxi_protein_g}g protein</span>}
+        </div>
+        {recipe.description && <p style={{fontSize:13, color:'var(--mid)', marginBottom:14, lineHeight:1.6}}>{recipe.description}</p>}
+
+        {ingredients.length > 0 && (
+          <div style={{marginBottom:14}}>
+            <div style={{fontWeight:600, fontSize:13, marginBottom:8}}>Ingredients</div>
+            {tracks.map(track => (
+              <div key={track} style={{marginBottom:8}}>
+                <span className={`track-badge track-${track}`} style={{marginBottom:4, display:'inline-block'}}>{track}</span>
+                {ingredients.filter(i => i.track === track).map(ing => (
+                  <div key={ing.id} style={{fontSize:13, padding:'3px 0', paddingLeft:8, borderLeft:'2px solid var(--border)'}}>
+                    {unitPref === 'metric'
+                      ? <><strong>{ing.quantity_metric}{ing.unit_metric}</strong> {ing.name}</>
+                      : <><strong>{ing.quantity_american || ing.quantity_metric}{ing.unit_american || ing.unit_metric}</strong> {ing.name}</>
+                    }
+                    {ing.preparation_note && <span style={{color:'var(--mid)'}}> — {ing.preparation_note}</span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {recipe.instructions && (
+          <div style={{marginBottom:14}}>
+            <div style={{fontWeight:600, fontSize:13, marginBottom:8}}>Instructions</div>
+            {Object.entries(recipe.instructions).filter(([,v])=>v?.length).map(([track, steps]) => (
+              <div key={track} style={{marginBottom:10}}>
+                {track !== 'shared' && <span className={`track-badge track-${track}`} style={{marginBottom:6, display:'inline-block'}}>{track}</span>}
+                {steps.map((step, i) => (
+                  <div key={i} style={{display:'flex', gap:10, padding:'6px 0', borderBottom:'1px solid var(--bg)', fontSize:13}}>
+                    <div style={{width:22, height:22, borderRadius:'50%', background:'var(--sage)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>{i+1}</div>
+                    <div style={{lineHeight:1.6}}>{step}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{marginBottom:14}}>
+          <div style={{fontWeight:600, fontSize:13, marginBottom:8}}>Rate this recipe</div>
+          <div style={{display:'flex', gap:6, marginBottom:8}}>
+            {[1,2,3,4,5].map(s => (
+              <button key={s} onClick={()=>setMyRating(s)} style={{fontSize:20, background:'none', border:'none', cursor:'pointer', opacity: myRating >= s ? 1 : 0.3}}>⭐</button>
+            ))}
+          </div>
+          <textarea className="input" style={{minHeight:60}} placeholder="Comment (optional)…" value={comment} onChange={e=>setComment(e.target.value)} />
+          <button className="btn btn-primary btn-sm" style={{marginTop:6}} onClick={submitRating} disabled={!myRating}>Submit Rating</button>
+        </div>
+
+        {ratings.length > 0 && (
+          <div>
+            <div style={{fontWeight:600, fontSize:13, marginBottom:6}}>Reviews</div>
+            {ratings.map(r => (
+              <div key={r.id} style={{fontSize:12, padding:'6px 0', borderBottom:'1px solid var(--bg)'}}>
+                <strong>{r.profiles?.name}</strong> {'⭐'.repeat(r.stars)}
+                {r.comment && <div style={{color:'var(--mid)'}}>{r.comment}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── MEAL PLAN ──
+function MealPlan({ profile, unitPref }) {
+  const [plans, setPlans] = useState([]);
+  const [recipes, setRecipes] = useState([]);
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [days, setDays] = useState(7);
+  const [showAdd, setShowAdd] = useState(null);
+
+  useEffect(() => {
+    fetchPlans();
+    supabase.from('recipes').select('id,title,category,dietary_tags,cuisine').then(({data})=>setRecipes(data||[]));
+  }, [startDate, days]);
+
+  async function fetchPlans() {
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + days - 1);
+    const { data } = await supabase.from('meal_plans').select('*, recipes(title,category,dietary_tags,is_bulk_cook,bulk_days)')
+      .gte('plan_date', startDate).lte('plan_date', end.toISOString().split('T')[0]);
+    setPlans(data || []);
+  }
+
+  const dateRange = Array.from({length: days}, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return d.toISOString().split('T')[0];
+  });
+
+  const MEAL_TYPES = ['breakfast','school_break','weekend_lunch','dinner'];
+  const MEAL_LABELS = {breakfast:'🌅 Breakfast', school_break:'🎒 School Break', weekend_lunch:'☀️ Weekend Lunch', dinner:'🍽 Dinner'};
+
+  return (
+    <div>
+      <h1 className="page-title">Meal Plan</h1>
+      <p className="page-sub">Plan as many days ahead as you need. Click any slot to assign a recipe.</p>
+      <div style={{display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center'}}>
+        <div>
+          <label className="form-label">Start Date</label>
+          <input className="input" type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} style={{width:'auto'}} />
+        </div>
+        <div>
+          <label className="form-label">Days to plan</label>
+          <select className="input" style={{width:'auto'}} value={days} onChange={e=>setDays(parseInt(e.target.value))}>
+            {[3,5,7,10,14].map(d=><option key={d} value={d}>{d} days</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{overflowX:'auto'}}>
+        <table className="table" style={{minWidth:600}}>
+          <thead>
+            <tr>
+              <th>Meal</th>
+              {dateRange.map(d => <th key={d}>{new Date(d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {MEAL_TYPES.map(mt => (
+              <tr key={mt}>
+                <td style={{fontWeight:600, fontSize:12, whiteSpace:'nowrap'}}>{MEAL_LABELS[mt]}</td>
+                {dateRange.map(d => {
+                  const plan = plans.find(p => p.plan_date === d && p.meal_type === mt);
+                  return (
+                    <td key={d} style={{cursor:'pointer', minWidth:120}} onClick={()=>profile?.role==='admin'&&setShowAdd({date:d, meal_type:mt, existing:plan})}>
+                      {plan ? (
+                        <div style={{background:'var(--sage-bg)', borderRadius:6, padding:'4px 8px', fontSize:12}}>
+                          <div style={{fontWeight:600, color:'var(--sage-dark)'}}>{plan.recipes?.title}</div>
+                          {plan.recipes?.is_bulk_cook && <span className="tag tag-warn" style={{fontSize:10}}>🥘 bulk</span>}
+                        </div>
+                      ) : (
+                        <div style={{color:'var(--muted)', fontSize:12, textAlign:'center'}}>+ add</div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && <AssignMealModal date={showAdd.date} meal_type={showAdd.meal_type} existing={showAdd.existing} recipes={recipes} onClose={()=>setShowAdd(null)} onSaved={()=>{setShowAdd(null);fetchPlans();showToast('✓ Meal plan updated');}} />}
+    </div>
+  );
+}
+
+function AssignMealModal({ date, meal_type, existing, recipes, onClose, onSaved }) {
+  const [recipeId, setRecipeId] = useState(existing?.recipe_id || '');
+  const [includeMeat, setIncludeMeat] = useState(existing?.include_meat_track || false);
+  const [includeFish, setIncludeFish] = useState(existing?.include_fish_track || false);
+  const [notes, setNotes] = useState(existing?.notes || '');
+
+  async function save() {
+    const data = { plan_date: date, meal_type, recipe_id: recipeId, include_meat_track: includeMeat, include_fish_track: includeFish, notes, is_finalised: true, created_by: (await supabase.auth.getUser()).data.user?.id };
+    if (existing) await supabase.from('meal_plans').update(data).eq('id', existing.id);
+    else await supabase.from('meal_plans').insert([data]);
+    onSaved();
+  }
+
+  async function remove() {
+    if (existing) await supabase.from('meal_plans').delete().eq('id', existing.id);
+    onSaved();
+  }
+
+  const MEAL_LABELS = {breakfast:'Breakfast', school_break:'School Break', weekend_lunch:'Weekend Lunch', dinner:'Dinner'};
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>{MEAL_LABELS[meal_type]} · {new Date(date).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</h3>
+        <div className="form-row">
+          <label className="form-label">Recipe</label>
+          <select className="input" value={recipeId} onChange={e=>setRecipeId(e.target.value)}>
+            <option value="">— Select recipe —</option>
+            {recipes.map(r => <option key={r.id} value={r.id}>{r.title} ({r.cuisine})</option>)}
+          </select>
+        </div>
+        <div style={{display:'flex', gap:12, marginBottom:12}}>
+          <label style={{display:'flex', gap:6, alignItems:'center', fontSize:13}}>
+            <input type="checkbox" checked={includeMeat} onChange={e=>setIncludeMeat(e.target.checked)} />
+            Include meat track
+          </label>
+          <label style={{display:'flex', gap:6, alignItems:'center', fontSize:13}}>
+            <input type="checkbox" checked={includeFish} onChange={e=>setIncludeFish(e.target.checked)} />
+            Include fish track
+          </label>
+        </div>
+        <div className="form-row">
+          <label className="form-label">Notes</label>
+          <input className="input" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Optional notes…" />
+        </div>
+        <div className="form-actions">
+          <button className="btn btn-primary" onClick={save} disabled={!recipeId}>Save</button>
+          {existing && <button className="btn btn-danger" onClick={remove}>Remove</button>}
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PANTRY ──
+function Pantry({ profile, unitPref }) {
+  const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [catFilter, setCatFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  async function fetchData() {
+    setLoading(true);
+    const [itemsRes, catsRes] = await Promise.all([
+      supabase.from('pantry_items').select('*, pantry_categories(name, icon), stores(name)').order('is_spice').order('name'),
+      supabase.from('pantry_categories').select('*').order('sort_order')
+    ]);
+    setItems(itemsRes.data || []);
+    setCategories(catsRes.data || []);
+    setLoading(false);
+  }
+
+  async function updateQty(id, delta, current, unit) {
+    const newQty = Math.max(0, Math.round((parseFloat(current) + delta) * 10) / 10);
+    await supabase.from('pantry_items').update({ quantity_metric: newQty, last_updated: new Date().toISOString() }).eq('id', id);
+    setItems(items => items.map(i => i.id === id ? {...i, quantity_metric: newQty} : i));
+  }
+
+  async function updateSpiceLevel(id, level) {
+    await supabase.from('pantry_items').update({ spice_level: level, last_updated: new Date().toISOString() }).eq('id', id);
+    setItems(items => items.map(i => i.id === id ? {...i, spice_level: level} : i));
+  }
+
+  const filtered = catFilter === 'all' ? items : items.filter(i => i.pantry_categories?.name === catFilter);
+  const spices = filtered.filter(i => i.is_spice);
+  const nonSpices = filtered.filter(i => !i.is_spice);
+
+  const canEdit = profile?.role === 'admin' || profile?.role === 'member';
+
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
+        <h1 className="page-title">Pantry</h1>
+        {canEdit && <button className="btn btn-primary" onClick={()=>setShowAdd(true)}>+ Add Item</button>}
+      </div>
+      <p className="page-sub">Track quantities. Items below threshold auto-appear on the shopping list. Spices tracked by level.</p>
+
+      <div className="tabs">
+        <button className={`tab-btn ${catFilter==='all'?'active':''}`} onClick={()=>setCatFilter('all')}>All</button>
+        {categories.map(c => <button key={c.id} className={`tab-btn ${catFilter===c.name?'active':''}`} onClick={()=>setCatFilter(c.name)}>{c.icon} {c.name}</button>)}
+      </div>
+
+      {loading ? <div className="loading">Loading pantry…</div> : (
+        <>
+          {spices.length > 0 && (
+            <div className="card" style={{marginBottom:14}}>
+              <div className="card-header"><div className="card-title">🧂 Spices</div></div>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px,1fr))', gap:10, padding:14}}>
+                {spices.map(spice => (
+                  <div key={spice.id} style={{background:'var(--bg)', borderRadius:8, padding:10}}>
+                    <div style={{fontWeight:600, fontSize:13, marginBottom:6}}>{spice.name}</div>
+                    <div style={{display:'flex', gap:4}}>
+                      {[100,75,50,25,10].map(level => (
+                        <button key={level} onClick={()=>canEdit&&updateSpiceLevel(spice.id, level)} style={{
+                          width:20, height:20, borderRadius:'50%', border:'2px solid var(--border)', cursor:canEdit?'pointer':'default',
+                          background: spice.spice_level >= level ? SPICE_COLORS[level] : 'white',
+                          transition:'all 0.15s'
+                        }} title={SPICE_LABELS[level]} />
+                      ))}
+                    </div>
+                    <div style={{fontSize:11, color: spice.spice_level <= 10 ? 'var(--red)' : spice.spice_level <= 25 ? 'var(--terra)' : 'var(--mid)', marginTop:4, fontFamily:'IBM Plex Mono, monospace'}}>
+                      {SPICE_LABELS[spice.spice_level]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {nonSpices.length > 0 && (
+            <div className="card">
+              <table className="table">
+                <thead>
+                  <tr><th>Item</th><th>Category</th><th>Quantity</th><th>Status</th><th>Store</th></tr>
+                </thead>
+                <tbody>
+                  {nonSpices.map(item => {
+                    const isLow = parseFloat(item.minimum_threshold) > 0 && parseFloat(item.quantity_metric) <= parseFloat(item.minimum_threshold);
+                    const ratio = parseFloat(item.minimum_threshold) > 0 ? Math.min(1, parseFloat(item.quantity_metric) / (parseFloat(item.minimum_threshold) * 3)) : 0.8;
+                    const barColor = ratio > 0.6 ? 'var(--sage)' : ratio > 0.3 ? 'var(--gold)' : 'var(--red)';
+                    const delta = item.unit_metric === 'count' || item.unit_metric === 'head' || item.unit_metric === 'bunch' || item.unit_metric === 'pack' || item.unit_metric === 'can' || item.unit_metric === 'bottle' || item.unit_metric === 'jar' ? 1 : 100;
+                    return (
+                      <tr key={item.id} style={{background: isLow ? '#fff9f8' : ''}}>
+                        <td><strong>{item.name}</strong></td>
+                        <td><span style={{fontSize:11, color:'var(--mid)'}}>{item.pantry_categories?.icon} {item.pantry_categories?.name}</span></td>
+                        <td>
+                          {canEdit ? (
+                            <div className="qty-control">
+                              <button className="qty-btn" onClick={()=>updateQty(item.id, -delta, item.quantity_metric)}>−</button>
+                              <span style={{fontFamily:'IBM Plex Mono,monospace', fontSize:12, minWidth:70, textAlign:'center', color: isLow?'var(--red)':'var(--sage)'}}>
+                                {item.quantity_metric} {item.unit_metric}
+                              </span>
+                              <button className="qty-btn" onClick={()=>updateQty(item.id, delta, item.quantity_metric)}>+</button>
+                            </div>
+                          ) : <span style={{fontFamily:'IBM Plex Mono,monospace', fontSize:12}}>{item.quantity_metric} {item.unit_metric}</span>}
+                          <div className="stock-bar" style={{marginTop:4}}><div className="stock-fill" style={{width:(ratio*100)+'%', background:barColor}}></div></div>
+                        </td>
+                        <td>{isLow ? <span className="tag tag-low">Low</span> : <span className="tag tag-ok">OK</span>}</td>
+                        <td style={{fontSize:12, color:'var(--mid)'}}>{item.stores?.name}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {showAdd && <AddPantryModal categories={categories} onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchData();showToast('✓ Added to pantry');}} />}
+    </div>
+  );
+}
+
+function AddPantryModal({ categories, onClose, onSaved }) {
+  const [form, setForm] = useState({ name:'', category_id:'', quantity_metric:0, unit_metric:'g', minimum_threshold:0, is_spice:false, spice_level:100 });
+
+  async function save() {
+    await supabase.from('pantry_items').insert([form]);
+    onSaved();
+  }
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>Add Pantry Item</h3>
+        <div className="form-row"><label className="form-label">Name</label><input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></div>
+        <div className="form-row"><label className="form-label">Category</label>
+          <select className="input" value={form.category_id} onChange={e=>setForm(f=>({...f,category_id:e.target.value}))}>
+            <option value="">Select…</option>
+            {categories.map(c=><option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+          </select>
+        </div>
+        <div className="form-row" style={{display:'flex', gap:6, alignItems:'center'}}>
+          <input type="checkbox" id="isspice" checked={form.is_spice} onChange={e=>setForm(f=>({...f,is_spice:e.target.checked}))} />
+          <label htmlFor="isspice" style={{fontSize:13}}>This is a spice (track by level, not quantity)</label>
+        </div>
+        {!form.is_spice && (
+          <div className="grid-2">
+            <div className="form-row"><label className="form-label">Quantity</label><input className="input" type="number" value={form.quantity_metric} onChange={e=>setForm(f=>({...f,quantity_metric:e.target.value}))} /></div>
+            <div className="form-row"><label className="form-label">Unit</label>
+              <select className="input" value={form.unit_metric} onChange={e=>setForm(f=>({...f,unit_metric:e.target.value}))}>
+                {['g','kg','ml','l','count','bunch','head','can','bottle','jar','pack'].map(u=><option key={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+        <div className="form-row"><label className="form-label">Min. threshold (triggers shopping)</label><input className="input" type="number" value={form.minimum_threshold} onChange={e=>setForm(f=>({...f,minimum_threshold:e.target.value}))} /></div>
+        <div className="form-actions">
+          <button className="btn btn-primary" onClick={save} disabled={!form.name}>Add</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FRIDGE ──
+function Fridge({ profile }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => { fetchItems(); }, []);
+
+  async function fetchItems() {
+    setLoading(true);
+    const { data } = await supabase.from('fridge_items').select('*').order('added_date');
+    setItems(data || []);
+    setLoading(false);
+  }
+
+  async function removeItem(id) {
+    await supabase.from('fridge_items').delete().eq('id', id);
+    setItems(items => items.filter(i => i.id !== id));
+    showToast('Removed from fridge');
+  }
+
+  async function decrementPortions(id, current) {
+    const newVal = Math.max(0, current - 1);
+    await supabase.from('fridge_items').update({ portions_remaining: newVal }).eq('id', id);
+    setItems(items => items.map(i => i.id === id ? {...i, portions_remaining: newVal} : i));
+    if (newVal === 0) showToast('Last portion — remove when eaten!');
+  }
+
+  const filtered = filter === 'all' ? items : items.filter(i => i.item_type === filter);
+  const canEdit = profile?.role === 'admin' || profile?.role === 'member';
+
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
+        <h1 className="page-title">Fridge & Leftovers</h1>
+        {canEdit && <button className="btn btn-primary" onClick={()=>setShowAdd(true)}>+ Add</button>}
+      </div>
+      <p className="page-sub">Log fresh ingredients, leftovers, and bulk cook batches. Track portions remaining.</p>
+      <div className="tabs">
+        {[['all','All'],['fresh','Fresh'],['leftover','Leftovers'],['expiring','Use Soon']].map(([f,l])=>(
+          <button key={f} className={`tab-btn ${filter===f?'active':''}`} onClick={()=>setFilter(f)}>{l}</button>
+        ))}
+      </div>
+      {loading ? <div className="loading">Loading fridge…</div> :
+        filtered.length === 0 ? <div className="empty-state"><div className="empty-state-icon">❄️</div>Nothing here</div> :
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:10}}>
+          {filtered.map(item => {
+            const age = Math.floor((Date.now() - new Date(item.added_date)) / 86400000);
+            const isExpiring = item.item_type === 'expiring' || (item.item_type === 'leftover' && age >= 2) || (item.item_type === 'fresh' && age >= 4);
+            return (
+              <div key={item.id} style={{background:'var(--card)', border:`1px solid ${isExpiring?'var(--gold)':item.item_type==='leftover'?'var(--terra)':'var(--border)'}`, borderRadius:'var(--radius)', padding:12, position:'relative'}}>
+                {item.item_type === 'leftover' && <span style={{position:'absolute',top:6,right:6}} className="tag" style={{background:'var(--terra-bg)',color:'var(--terra)',fontSize:10}}>LEFTOVER</span>}
+                {isExpiring && <span className="tag tag-warn" style={{position:'absolute',top:6,right:6,fontSize:10}}>USE SOON</span>}
+                <div style={{fontWeight:600, fontSize:13, marginBottom:4, paddingRight: isExpiring||item.item_type==='leftover'?60:0}}>{item.name}</div>
+                <div style={{fontSize:12, color:'var(--mid)'}}>{item.quantity}</div>
+                {item.portions_remaining != null && (
+                  <div style={{display:'flex', alignItems:'center', gap:6, marginTop:6}}>
+                    <span style={{fontSize:11, color:'var(--mid)'}}>Portions:</span>
+                    <strong style={{fontFamily:'IBM Plex Mono,monospace', fontSize:13}}>{item.portions_remaining}</strong>
+                    {canEdit && <button className="qty-btn" onClick={()=>decrementPortions(item.id, item.portions_remaining)}>−</button>}
+                  </div>
+                )}
+                <div style={{fontSize:11, color:'var(--muted)', marginTop:4}}>{age === 0 ? 'Today' : age + 'd ago'}</div>
+                {canEdit && <button className="btn btn-xs btn-danger" style={{marginTop:8, width:'100%', justifyContent:'center'}} onClick={()=>removeItem(item.id)}>Remove</button>}
+              </div>
+            );
+          })}
+        </div>
+      }
+      {showAdd && <AddFridgeModal onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchItems();showToast('✓ Added to fridge');}} />}
+    </div>
+  );
+}
+
+function AddFridgeModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({ name:'', quantity:'', item_type:'fresh', added_date: new Date().toISOString().split('T')[0], portions_remaining: null, notes:'' });
+
+  async function save() {
+    await supabase.from('fridge_items').insert([form]);
+    onSaved();
+  }
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>Add to Fridge</h3>
+        <div className="form-row"><label className="form-label">Name</label><input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></div>
+        <div className="form-row"><label className="form-label">Quantity</label><input className="input" value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} placeholder="e.g. 2 portions" /></div>
+        <div className="form-row"><label className="form-label">Type</label>
+          <select className="input" value={form.item_type} onChange={e=>setForm(f=>({...f,item_type:e.target.value}))}>
+            <option value="fresh">Fresh ingredient</option>
+            <option value="leftover">Leftover cooked meal</option>
+            <option value="expiring">Use soon</option>
+          </select>
+        </div>
+        {form.item_type === 'leftover' && (
+          <div className="form-row"><label className="form-label">Portions remaining</label><input className="input" type="number" value={form.portions_remaining||''} onChange={e=>setForm(f=>({...f,portions_remaining:parseInt(e.target.value)}))} /></div>
+        )}
+        <div className="form-row"><label className="form-label">Date</label><input className="input" type="date" value={form.added_date} onChange={e=>setForm(f=>({...f,added_date:e.target.value}))} /></div>
+        <div className="form-actions">
+          <button className="btn btn-primary" onClick={save} disabled={!form.name}>Add</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SHOPPING ──
+function Shopping({ profile, unitPref }) {
+  const [items, setItems] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [library, setLibrary] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [storeFilter, setStoreFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [priceModal, setPriceModal] = useState(null);
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  async function fetchAll() {
+    setLoading(true);
+    const [shopRes, storesRes, libRes] = await Promise.all([
+      supabase.from('shopping_items').select('*, stores(name)').order('is_checked').order('category'),
+      supabase.from('stores').select('*'),
+      supabase.from('shopping_library').select('*, stores(name)').order('use_count', {ascending:false}).limit(20)
+    ]);
+    setItems(shopRes.data || []);
+    setStores(storesRes.data || []);
+    setLibrary(libRes.data || []);
+    setLoading(false);
+  }
+
+  async function toggleCheck(item) {
+    if (!item.is_checked) {
+      setPriceModal(item);
+    } else {
+      await supabase.from('shopping_items').update({ is_checked: false, price_paid: null }).eq('id', item.id);
+      fetchAll();
+    }
+  }
+
+  async function confirmCheck(item, price) {
+    await supabase.from('shopping_items').update({ is_checked: true, price_paid: price || null }).eq('id', item.id);
+    if (price) {
+      await supabase.from('budget_entries').insert([{ amount: price, category: item.category, is_food: item.is_food, store_id: item.store_id, notes: item.name }]);
+    }
+    if (item.save_to_library) {
+      await supabase.from('shopping_library').upsert({ name: item.name, category: item.category, is_food: item.is_food, preferred_store_id: item.store_id, last_used: new Date().toISOString() }, { onConflict: 'name', ignoreDuplicates: false });
+    }
+    setPriceModal(null);
+    fetchAll();
+    showToast('✓ Checked off' + (price ? ` — $${price} logged` : ''));
+  }
+
+  async function clearChecked() {
+    await supabase.from('shopping_items').delete().eq('is_checked', true);
+    fetchAll();
+    showToast('Checked items cleared');
+  }
+
+  async function addFromLibrary(lib) {
+    await supabase.from('shopping_items').insert([{ name: lib.name, category: lib.category, store_id: lib.preferred_store_id, is_food: lib.is_food, source: 'manual', save_to_library: true }]);
+    fetchAll();
+    showToast('✓ Added: ' + lib.name);
+  }
+
+  // Auto-generate from low pantry
+  async function generateFromPantry() {
+    const { data: lowItems } = await supabase.from('pantry_items').select('*, stores(id)').eq('is_spice', false);
+    const low = (lowItems || []).filter(p => parseFloat(p.minimum_threshold) > 0 && parseFloat(p.quantity_metric) <= parseFloat(p.minimum_threshold));
+    const { data: lowSpices } = await supabase.from('pantry_items').select('*, stores(id)').eq('is_spice', true).lte('spice_level', 25);
+
+    const toAdd = [...low.map(p => ({ name: p.name, category: 'Pantry & Canned', store_id: p.preferred_store_id, source: 'auto_pantry', is_food: true, save_to_library: true })),
+      ...(lowSpices||[]).map(p => ({ name: p.name, category: 'Spices', store_id: p.preferred_store_id, source: 'auto_pantry', is_food: true, save_to_library: true }))];
+
+    if (toAdd.length) {
+      await supabase.from('shopping_items').insert(toAdd);
+      fetchAll();
+      showToast(`✓ Added ${toAdd.length} low-stock items`);
+    } else {
+      showToast('All pantry items are stocked');
+    }
+  }
+
+  const filteredItems = storeFilter === 'all' ? items : items.filter(i => i.stores?.name === storeFilter);
+  const byStore = stores.reduce((acc, s) => {
+    const storeItems = filteredItems.filter(i => i.stores?.name === s.name);
+    if (storeItems.length) acc[s.name] = storeItems;
+    return acc;
+  }, {});
+  const noStore = filteredItems.filter(i => !i.store_id);
+  const canEdit = profile?.role === 'admin' || profile?.role === 'member';
+
+  return (
+    <div>
+      <h1 className="page-title">Shopping List</h1>
+      <p className="page-sub">Auto-generated from pantry thresholds. Log prices as you shop to track budget.</p>
+      <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
+        {canEdit && <>
+          <button className="btn btn-primary" onClick={generateFromPantry}>↻ Add Low Stock Items</button>
+          <button className="btn btn-secondary" onClick={()=>setShowAdd(true)}>+ Add Item</button>
+          <button className="btn btn-secondary" onClick={clearChecked}>Clear Checked</button>
+        </>}
+      </div>
+
+      {/* Quick-add from library */}
+      {library.length > 0 && canEdit && (
+        <div className="card" style={{marginBottom:14}}>
+          <div className="card-header"><div className="card-title">⚡ Quick Add (saved items)</div></div>
+          <div style={{padding:10, display:'flex', flexWrap:'wrap', gap:6}}>
+            {library.map(lib => (
+              <button key={lib.id} className="btn btn-secondary btn-xs" onClick={()=>addFromLibrary(lib)}>
+                + {lib.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Store filter */}
+      <div className="tabs">
+        <button className={`tab-btn ${storeFilter==='all'?'active':''}`} onClick={()=>setStoreFilter('all')}>All Stores</button>
+        {stores.map(s => <button key={s.id} className={`tab-btn ${storeFilter===s.name?'active':''}`} onClick={()=>setStoreFilter(s.name)}>{s.name}</button>)}
+      </div>
+
+      {loading ? <div className="loading">Loading…</div> :
+        filteredItems.length === 0 ?
+          <div className="empty-state"><div className="empty-state-icon">🛒</div>Shopping list is empty</div>
+        :
+        <>
+          {Object.entries(byStore).map(([storeName, storeItems]) => (
+            <div key={storeName} style={{marginBottom:14}}>
+              <div style={{background:'var(--ink)', color:'white', padding:'10px 16px', borderRadius:'var(--radius) var(--radius) 0 0', fontWeight:600, fontSize:13, display:'flex', justifyContent:'space-between'}}>
+                <span>{storeName}</span>
+                <span style={{fontSize:11, opacity:0.7, fontFamily:'IBM Plex Mono,monospace'}}>{storeItems.filter(i=>!i.is_checked).length} remaining</span>
+              </div>
+              <div style={{background:'var(--card)', border:'1px solid var(--border)', borderTop:'none', borderRadius:'0 0 var(--radius) var(--radius)'}}>
+                {storeItems.map(item => (
+                  <ShopItem key={item.id} item={item} canEdit={canEdit} onToggle={()=>toggleCheck(item)} />
+                ))}
+              </div>
+            </div>
+          ))}
+          {noStore.length > 0 && (
+            <div style={{marginBottom:14}}>
+              <div style={{background:'var(--mid)', color:'white', padding:'10px 16px', borderRadius:'var(--radius) var(--radius) 0 0', fontWeight:600, fontSize:13}}>Other</div>
+              <div style={{background:'var(--card)', border:'1px solid var(--border)', borderTop:'none', borderRadius:'0 0 var(--radius) var(--radius)'}}>
+                {noStore.map(item => <ShopItem key={item.id} item={item} canEdit={canEdit} onToggle={()=>toggleCheck(item)} />)}
+              </div>
+            </div>
+          )}
+        </>
+      }
+
+      {showAdd && <AddShopItemModal stores={stores} onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchAll();showToast('✓ Added to list');}} />}
+      {priceModal && <PriceModal item={priceModal} onConfirm={(price)=>confirmCheck(priceModal, price)} onSkip={()=>confirmCheck(priceModal, null)} onClose={()=>setPriceModal(null)} />}
+    </div>
+  );
+}
+
+function ShopItem({ item, canEdit, onToggle }) {
+  return (
+    <div style={{display:'grid', gridTemplateColumns:'32px 1fr auto', alignItems:'center', gap:10, padding:'10px 16px', borderBottom:'1px solid var(--bg)', opacity: item.is_checked ? 0.5 : 1}}>
+      {canEdit
+        ? <div className={`shop-check ${item.is_checked?'done':''}`} onClick={onToggle}>{item.is_checked?'✓':''}</div>
+        : <div style={{width:20}}></div>
+      }
+      <div>
+        <div style={{fontSize:13, fontWeight:500, textDecoration: item.is_checked?'line-through':'none'}}>{item.name}</div>
+        <div style={{fontSize:11, color:'var(--mid)', fontFamily:'IBM Plex Mono,monospace'}}>
+          {item.category}
+          {item.source === 'auto_pantry' && <span style={{marginLeft:6, background:'var(--gold-bg)', color:'var(--gold)', padding:'0 5px', borderRadius:8}}>AUTO</span>}
+        </div>
+      </div>
+      <div style={{textAlign:'right'}}>
+        {item.quantity_metric && <div style={{fontSize:12, fontFamily:'IBM Plex Mono,monospace', color:'var(--mid)'}}>{item.quantity_metric}{item.unit_metric}</div>}
+        {item.price_paid && <div style={{fontSize:12, color:'var(--sage)', fontFamily:'IBM Plex Mono,monospace'}}>${item.price_paid}</div>}
+      </div>
+    </div>
+  );
+}
+
+function PriceModal({ item, onConfirm, onSkip, onClose }) {
+  const [price, setPrice] = useState('');
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>Log Price</h3>
+        <p style={{fontSize:13, color:'var(--mid)', marginBottom:14}}>{item.name} — log the price to track your budget?</p>
+        <div className="form-row">
+          <label className="form-label">Price paid ($)</label>
+          <input className="input" type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} placeholder="0.00" autoFocus />
+        </div>
+        <div className="form-actions">
+          <button className="btn btn-primary" onClick={()=>onConfirm(parseFloat(price)||null)}>✓ Confirm {price?`$${price}`:''}</button>
+          <button className="btn btn-secondary" onClick={onSkip}>Skip price</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddShopItemModal({ stores, onClose, onSaved }) {
+  const [form, setForm] = useState({ name:'', category:'Other', store_id:'', is_food:true, save_to_library:true, quantity_metric:'', unit_metric:'', notes:'' });
+  const CATS = ['Produce','Protein','Dairy','Dry Goods','Spices','Baking','Household','Other'];
+
+  async function save() {
+    await supabase.from('shopping_items').insert([{...form, source:'manual'}]);
+    if (form.save_to_library) {
+      await supabase.from('shopping_library').upsert({ name:form.name, category:form.category, is_food:form.is_food, preferred_store_id:form.store_id||null }, {onConflict:'name'});
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>Add Shopping Item</h3>
+        <div className="form-row"><label className="form-label">Name</label><input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></div>
+        <div className="grid-2">
+          <div className="form-row"><label className="form-label">Category</label>
+            <select className="input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+              {CATS.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-row"><label className="form-label">Store</label>
+            <select className="input" value={form.store_id} onChange={e=>setForm(f=>({...f,store_id:e.target.value}))}>
+              <option value="">Any store</option>
+              {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid-2">
+          <div className="form-row"><label className="form-label">Qty (metric)</label><input className="input" type="number" value={form.quantity_metric} onChange={e=>setForm(f=>({...f,quantity_metric:e.target.value}))} /></div>
+          <div className="form-row"><label className="form-label">Unit</label>
+            <select className="input" value={form.unit_metric} onChange={e=>setForm(f=>({...f,unit_metric:e.target.value}))}>
+              {['g','kg','ml','l','count','pack','can','bunch'].map(u=><option key={u}>{u}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{display:'flex', gap:16, marginBottom:12}}>
+          <label style={{display:'flex', gap:6, alignItems:'center', fontSize:13}}>
+            <input type="checkbox" checked={form.is_food} onChange={e=>setForm(f=>({...f,is_food:e.target.checked}))} /> Food item
+          </label>
+          <label style={{display:'flex', gap:6, alignItems:'center', fontSize:13}}>
+            <input type="checkbox" checked={form.save_to_library} onChange={e=>setForm(f=>({...f,save_to_library:e.target.checked}))} /> Save for quick reuse
+          </label>
+        </div>
+        <div className="form-actions">
+          <button className="btn btn-primary" onClick={save} disabled={!form.name}>Add</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── BUDGET ──
+function Budget({ profile }) {
+  const [entries, setEntries] = useState([]);
+  const [config, setConfig] = useState({ monthly_target: 450 });
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => { fetchData(); }, []);
+
+  async function fetchData() {
+    setLoading(true);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const [entriesRes, configRes] = await Promise.all([
+      supabase.from('budget_entries').select('*, stores(name)').gte('entry_date', monthStart).order('entry_date', {ascending:false}),
+      supabase.from('budget_config').select('*').single()
+    ]);
+    setEntries(entriesRes.data || []);
+    setConfig(configRes.data || { monthly_target: 450 });
+    setLoading(false);
+  }
+
+  const totalMonth = entries.reduce((a, e) => a + parseFloat(e.amount), 0);
+  const target = parseFloat(config.monthly_target);
+  const pct = Math.min(100, (totalMonth / target) * 100);
+  const barColor = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--gold)' : 'var(--sage)';
+
+  const now = new Date();
+  const weekStart = new Date(now.setDate(now.getDate() - now.getDay())).toISOString().split('T')[0];
+  const weekTotal = entries.filter(e => e.entry_date >= weekStart).reduce((a, e) => a + parseFloat(e.amount), 0);
+
+  const byCategory = entries.reduce((acc, e) => {
+    acc[e.category || 'Other'] = (acc[e.category || 'Other'] || 0) + parseFloat(e.amount);
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      <h1 className="page-title">Budget Tracker</h1>
+      <p className="page-sub">Target: ${target}/month for 3 people. Log prices when shopping to track spend.</p>
+
+      <div className="grid-3" style={{marginBottom:16}}>
+        <div className="stat-box">
+          <div className="stat-label">This Month</div>
+          <div className="stat-val" style={{color:barColor}}>${totalMonth.toFixed(0)}</div>
+          <div className="budget-bar-wrap" style={{marginTop:6}}><div className="budget-bar" style={{width:pct+'%', background:barColor}}></div></div>
+          <div className="stat-sub">${(target-totalMonth).toFixed(0)} remaining of ${target}</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-label">This Week</div>
+          <div className="stat-val" style={{color: weekTotal > 120 ? 'var(--red)' : 'var(--sage)'}}>${weekTotal.toFixed(0)}</div>
+          <div className="stat-sub">Target ~$105/week</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-label">Daily Average</div>
+          <div className="stat-val">${(totalMonth / new Date().getDate()).toFixed(1)}</div>
+          <div className="stat-sub">Target ~$15/day</div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{marginBottom:16}}>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">By Category</div>
+            {profile?.role === 'admin' && <button className="btn btn-sm btn-primary" onClick={()=>setShowAdd(true)}>+ Log Spend</button>}
+          </div>
+          <div className="card-body">
+            {Object.entries(byCategory).sort((a,b)=>b[1]-a[1]).map(([cat, amt]) => (
+              <div key={cat} style={{display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bg)', fontSize:13}}>
+                <span>{cat}</span>
+                <strong style={{fontFamily:'IBM Plex Mono,monospace'}}>${amt.toFixed(2)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-header"><div className="card-title">Recent Entries</div></div>
+          <div className="card-body" style={{maxHeight:300, overflowY:'auto'}}>
+            {loading ? <div className="loading">Loading…</div> :
+              entries.slice(0, 20).map(e => (
+                <div key={e.id} style={{display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bg)', fontSize:12}}>
+                  <div>
+                    <div style={{fontWeight:500}}>{e.notes || e.category}</div>
+                    <div style={{color:'var(--mid)'}}>{e.entry_date} · {e.stores?.name}</div>
+                  </div>
+                  <strong style={{fontFamily:'IBM Plex Mono,monospace', color:'var(--terra)'}}>${parseFloat(e.amount).toFixed(2)}</strong>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+
+      {showAdd && <AddBudgetModal onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchData();showToast('✓ Spend logged');}} />}
+    </div>
+  );
+}
+
+function AddBudgetModal({ onClose, onSaved }) {
+  const [form, setForm] = useState({ amount:'', category:'Produce', is_food:true, notes:'', entry_date: new Date().toISOString().split('T')[0] });
+  const [stores, setStores] = useState([]);
+  const [storeId, setStoreId] = useState('');
+  const CATS = ['Produce','Protein','Dairy','Dry Goods','Spices','Baking','Household','Other'];
+
+  useEffect(() => { supabase.from('stores').select('*').then(({data})=>setStores(data||[])); }, []);
+
+  async function save() {
+    await supabase.from('budget_entries').insert([{...form, store_id: storeId||null, created_by: (await supabase.auth.getUser()).data.user?.id}]);
+    onSaved();
+  }
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal">
+        <h3>Log Spend</h3>
+        <div className="form-row"><label className="form-label">Amount ($)</label><input className="input" type="number" step="0.01" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} /></div>
+        <div className="grid-2">
+          <div className="form-row"><label className="form-label">Category</label>
+            <select className="input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+              {CATS.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-row"><label className="form-label">Store</label>
+            <select className="input" value={storeId} onChange={e=>setStoreId(e.target.value)}>
+              <option value="">—</option>
+              {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="form-row"><label className="form-label">Notes</label><input className="input" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. chicken thighs, 3lb" /></div>
+        <div className="form-row"><label className="form-label">Date</label><input className="input" type="date" value={form.entry_date} onChange={e=>setForm(f=>({...f,entry_date:e.target.value}))} /></div>
+        <div className="form-actions">
+          <button className="btn btn-primary" onClick={save} disabled={!form.amount}>Save</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PROTEIN TRACKER ──
+function ProteinTracker({ profile }) {
+  const [logs, setLogs] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const SOURCES = [
+    {name:'Hemp seeds (3 tbsp)', g:10},
+    {name:'Eggs ×2', g:12},
+    {name:'Firm tofu (150g)', g:15},
+    {name:'Tempeh (100g)', g:19},
+    {name:'Red lentils (150g)', g:13},
+    {name:'Chickpeas (150g)', g:11},
+    {name:'Edamame (100g)', g:11},
+    {name:'Greek yoghurt (150g)', g:15},
+    {name:'Cornflakes + milk', g:7},
+    {name:'Dal dinner portion', g:16},
+    {name:'Egg fried rice', g:14},
+    {name:'Kefir (200ml)', g:7},
+    {name:'Skyr (150g)', g:17},
+  ];
+
+  useEffect(() => { fetchLogs(); }, [selectedDate]);
+
+  async function fetchLogs() {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const { data } = await supabase.from('protein_logs').select('*').eq('log_date', selectedDate).order('created_at');
+    setLogs(data || []);
+  }
+
+  async function toggleSource(source) {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const existing = logs.find(l => l.food_name === source.name);
+    if (existing) {
+      await supabase.from('protein_logs').delete().eq('id', existing.id);
+    } else {
+      await supabase.from('protein_logs').insert([{ user_id: userId, log_date: selectedDate, food_name: source.name, protein_g: source.g }]);
+    }
+    fetchLogs();
+  }
+
+  const total = logs.reduce((a, l) => a + l.protein_g, 0);
+  const pct = Math.min(100, (total/90)*100);
+  const color = total >= 75 ? 'var(--sage)' : total >= 50 ? 'var(--gold)' : 'var(--red)';
+
+  return (
+    <div>
+      <h1 className="page-title">Maxi's Protein Tracker</h1>
+      <p className="page-sub">Target 75–90g/day. Chronically underfueled — this matters. Click sources to log.</p>
+
+      <div style={{background:'linear-gradient(135deg, #2C3E50, #3D5A6E)', color:'white', borderRadius:'var(--radius)', padding:'16px 20px', marginBottom:16}}>
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:10}}>
+          <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:8, padding:'6px 10px', color:'white', fontFamily:'IBM Plex Sans,sans-serif', fontSize:13}} />
+          <div style={{fontFamily:'Lora,serif', fontSize:28}}>{total}g <span style={{fontSize:14, opacity:0.7}}>/ 90g target</span></div>
+        </div>
+        <div style={{height:12, background:'rgba(255,255,255,0.15)', borderRadius:6, overflow:'hidden'}}>
+          <div style={{height:'100%', width:pct+'%', background:color, borderRadius:6, transition:'width 0.5s'}}></div>
+        </div>
+        <div style={{fontSize:12, marginTop:6, opacity:0.7}}>
+          {total >= 75 ? '✅ Good — target reached!' : total >= 50 ? '⚠️ Getting there — add more protein' : '🔴 Low — needs attention today'}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><div className="card-title">Click to add / remove protein sources</div></div>
+        <div style={{padding:14, display:'flex', flexWrap:'wrap', gap:8}}>
+          {SOURCES.map(s => {
+            const added = logs.some(l => l.food_name === s.name);
+            return (
+              <button key={s.name} onClick={()=>toggleSource(s)} style={{padding:'6px 12px', borderRadius:20, border:'1px solid', fontSize:12, cursor:'pointer', fontFamily:'IBM Plex Sans,sans-serif', fontWeight:500, transition:'all 0.15s',
+                background: added ? 'var(--sage)' : 'var(--card)',
+                color: added ? 'white' : 'var(--ink)',
+                borderColor: added ? 'var(--sage)' : 'var(--border)'
+              }}>
+                {s.name} (+{s.g}g)
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card" style={{marginTop:14}}>
+        <div className="card-header"><div className="card-title">Best sources for Maxi — at a glance</div></div>
+        <table className="table">
+          <thead><tr><th>Food</th><th>Serving</th><th>Protein</th><th>~Cost</th></tr></thead>
+          <tbody>
+            {[['🌿 Hemp seeds','3 tbsp','10g','~$0.30'],['🫘 Tempeh','100g','19g','~$0.80'],['🥚 Eggs ×2','2 large','12g','~$0.55'],['🫘 Firm tofu','150g','15g','~$0.60'],['🟤 Red lentils','150g cooked','13g','~$0.20'],['🫘 Chickpeas','150g cooked','11g','~$0.15'],['🟢 Edamame','100g','11g','~$0.40'],['🥛 Skyr','150g','17g','~$0.40']].map(([f,s,p,c])=>(
+              <tr key={f}><td>{f}</td><td style={{color:'var(--mid)'}}>{s}</td><td style={{color:'var(--sage)',fontFamily:'IBM Plex Mono,monospace',fontWeight:600}}>{p}</td><td style={{color:'var(--mid)'}}>{c}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── FERMENTS ──
+function Ferments({ profile }) {
+  const [logs, setLogs] = useState([]);
+  const [activeTab, setActiveTab] = useState('kefir');
+  const [showLog, setShowLog] = useState(false);
+
+  useEffect(() => { fetchLogs(); }, []);
+
+  async function fetchLogs() {
+    const { data } = await supabase.from('ferment_logs').select('*, profiles(name)').order('logged_at', {ascending:false}).limit(40);
+    setLogs(data || []);
+  }
+
+  async function addLog(type, action, notes, batchSize) {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    await supabase.from('ferment_logs').insert([{ ferment_type: type, action, notes, batch_size_ml: batchSize || null, logged_by: userId }]);
+    fetchLogs();
+    showToast('✓ Logged');
+  }
+
+  const FERMENTS = [
+    { key: 'kefir', label: '🥛 Kefir', desc: 'Continuous culture · 2–3 tbsp grains · 1L milk · 24hrs room temp · Low lactose — good for Maxi' },
+    { key: 'skyr', label: '🫙 Skyr', desc: 'Friday evening batch · 2L milk → strain 12hrs · ~700g · 15–17g protein/150g' },
+    { key: 'greek_yoghurt', label: '🥄 Greek Yoghurt', desc: 'Same batch as skyr · strain only 2–4hrs · creamier · use for raita, cooking' },
+    { key: 'sourdough_starter', label: '🌾 Sourdough Starter', desc: 'Keep 20–30g always · feed weekly in fridge · discard into roti/pancakes' },
+  ];
+
+  const ACTIONS = { kefir: ['started','completed','discarded'], skyr: ['started','strained','completed'], greek_yoghurt: ['started','strained','completed'], sourdough_starter: ['fed','discarded'] };
+
+  const activeFerment = FERMENTS.find(f => f.key === activeTab);
+  const fermentLogs = logs.filter(l => l.ferment_type === activeTab);
+  const lastLog = fermentLogs[0];
+
+  const canEdit = profile?.role === 'admin' || profile?.role === 'member';
+
+  return (
+    <div>
+      <h1 className="page-title">Ferments</h1>
+      <p className="page-sub">Four live cultures. Track batches, actions, and history.</p>
+
+      <div className="grid-4" style={{marginBottom:16}}>
+        {FERMENTS.map(f => {
+          const last = logs.find(l => l.ferment_type === f.key);
+          return (
+            <div key={f.key} className="stat-box" style={{cursor:'pointer', border: activeTab===f.key ? '2px solid var(--sage)':''}} onClick={()=>setActiveTab(f.key)}>
+              <div className="stat-label">{f.label}</div>
+              <div style={{fontSize:12, color:'var(--mid)', marginTop:4}}>{last ? new Date(last.logged_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' · ' + last.action : 'Not logged yet'}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">{activeFerment?.label}</div>
+          {canEdit && (
+            <div style={{display:'flex', gap:6}}>
+              {(ACTIONS[activeTab]||[]).map(action => (
+                <button key={action} className="btn btn-sm btn-primary" onClick={async()=>{
+                  const notes = prompt(`Notes for "${action}" (optional):`);
+                  const batch = activeTab !== 'sourdough_starter' ? parseInt(prompt('Batch size in ml? (optional, skip to leave blank):')||'0')||null : null;
+                  await addLog(activeTab, action, notes||'', batch);
+                }}>{action}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="card-body">
+          <p style={{fontSize:13, color:'var(--mid)', marginBottom:14, lineHeight:1.6}}>{activeFerment?.desc}</p>
+          {fermentLogs.length === 0
+            ? <div style={{color:'var(--muted)', fontSize:13}}>No logs yet — start logging your batches!</div>
+            : fermentLogs.map(log => (
+                <div key={log.id} style={{display:'flex', gap:12, padding:'8px 0', borderBottom:'1px solid var(--bg)', fontSize:13, alignItems:'start'}}>
+                  <span style={{fontFamily:'IBM Plex Mono,monospace', fontSize:11, color:'var(--muted)', whiteSpace:'nowrap', paddingTop:2}}>{new Date(log.logged_at).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+                  <span className="tag" style={{background:'var(--sage-bg)', color:'var(--sage)', flexShrink:0}}>{log.action}</span>
+                  <span style={{color:'var(--mid)'}}>{log.notes || '—'}{log.batch_size_ml ? ` · ${log.batch_size_ml}ml` : ''}</span>
+                  <span style={{marginLeft:'auto', fontSize:11, color:'var(--muted)'}}>{log.profiles?.name}</span>
+                </div>
+              ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RENDER ──
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
