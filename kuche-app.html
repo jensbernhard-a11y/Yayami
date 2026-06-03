@@ -1859,7 +1859,8 @@ function Instructions({ profile }) {
 
   async function fetchInstructions() {
     setLoading(true);
-    const { data } = await supabase.from('instructions').select('*').order('sort_order');
+    const { data, error } = await supabase.from('instructions').select('*').order('sort_order');
+    console.log('Instructions:', JSON.stringify(data), JSON.stringify(error));
     setItems(data || []);
     if (data?.length) setSelected(data[0]);
     setLoading(false);
