@@ -225,7 +225,7 @@ function App() {
     { id: 'fridge', label: 'Fridge' },
     { id: 'shopping', label: 'Shopping' },
     { id: 'budget', label: 'Budget' },
-    { id: 'protein', label: 'Maxi Protein' },
+    { id: 'protein', label: 'Nutrition' },
     { id: 'ferments', label: 'Ferments' },
     { id: 'instructions', label: 'Instructions' },
   ];
@@ -391,7 +391,7 @@ function Dashboard({ profile, setTab, unitPref }) {
           <div className="stat-sub">Corvallis, OR</div>
         </div>
         <div className="stat-box" onClick={()=>setTab('protein')} style={{cursor:'pointer'}}>
-          <div className="stat-label">Maxi Protein</div>
+          <div className="stat-label">Nutrition</div>
           <div className="stat-val" style={{color:proteinColor}}>{todayProtein}g</div>
           <div className="protein-bar-wrap"><div className="protein-bar" style={{width:proteinPct+'%', background:proteinColor}}></div></div>
           <div className="stat-sub">Target: 90g/day</div>
@@ -1672,6 +1672,7 @@ function AddBudgetModal({ onClose, onSaved }) {
 function ProteinTracker({ profile }) {
   const [logs, setLogs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [proteinTarget, setProteinTarget] = useState(90);
   const SOURCES = [
     {name:'Hemp seeds (3 tbsp)', g:10},
     {name:'Eggs ×2', g:12},
@@ -1686,6 +1687,11 @@ function ProteinTracker({ profile }) {
     {name:'Egg fried rice', g:14},
     {name:'Kefir (200ml)', g:7},
     {name:'Skyr (150g)', g:17},
+    {name:'Chicken thigh (150g)', g:28},
+    {name:'Salmon fillet (150g)', g:30},
+    {name:'Beef (150g)', g:31},
+    {name:'Cheddar (50g)', g:13},
+    {name:'Whole milk (250ml)', g:8},
   ];
 
   useEffect(() => { fetchLogs(); }, [selectedDate]);
@@ -1708,29 +1714,35 @@ function ProteinTracker({ profile }) {
   }
 
   const total = logs.reduce((a, l) => a + l.protein_g, 0);
-  const pct = Math.min(100, (total/90)*100);
-  const color = total >= 75 ? 'var(--sage)' : total >= 50 ? 'var(--gold)' : 'var(--red)';
+  const pct = Math.min(100, (total/proteinTarget)*100);
+  const color = pct >= 85 ? 'var(--sage)' : pct >= 55 ? 'var(--gold)' : 'var(--red)';
+  const name = profile?.name || 'You';
 
   return (
     <div>
-      <h1 className="page-title">Maxi's Protein Tracker</h1>
-      <p className="page-sub">Target 75–90g/day. Chronically underfueled — this matters. Click sources to log.</p>
+      <h1 className="page-title">Nutrition — {name}</h1>
+      <p className="page-sub">Track daily protein intake. Each household member tracks their own. Phase 3 will add full macro tracking, photo logging, and goal-based recommendations.</p>
 
       <div style={{background:'linear-gradient(135deg, #2C3E50, #3D5A6E)', color:'white', borderRadius:'var(--radius)', padding:'16px 20px', marginBottom:16}}>
-        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:10}}>
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:10, flexWrap:'wrap'}}>
           <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} style={{background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:8, padding:'6px 10px', color:'white', fontFamily:'IBM Plex Sans,sans-serif', fontSize:13}} />
-          <div style={{fontFamily:'Lora,serif', fontSize:28}}>{total}g <span style={{fontSize:14, opacity:0.7}}>/ 90g target</span></div>
+          <div style={{fontFamily:'Lora,serif', fontSize:28}}>{total}g <span style={{fontSize:14, opacity:0.7}}>/ {proteinTarget}g protein target</span></div>
+          <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:12}}>
+            <span style={{opacity:0.7}}>Target:</span>
+            <input type="number" value={proteinTarget} onChange={e=>setProteinTarget(parseInt(e.target.value)||90)} style={{width:60, background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, padding:'4px 8px', color:'white', fontFamily:'IBM Plex Mono,sans-serif', fontSize:13}} />
+            <span style={{opacity:0.7}}>g</span>
+          </div>
         </div>
         <div style={{height:12, background:'rgba(255,255,255,0.15)', borderRadius:6, overflow:'hidden'}}>
           <div style={{height:'100%', width:pct+'%', background:color, borderRadius:6, transition:'width 0.5s'}}></div>
         </div>
         <div style={{fontSize:12, marginTop:6, opacity:0.7}}>
-          {total >= 75 ? '✅ Good — target reached!' : total >= 50 ? '⚠️ Getting there — add more protein' : '🔴 Low — needs attention today'}
+          {pct >= 85 ? '✅ Good — target reached!' : pct >= 55 ? '⚠️ Getting there — keep going' : '🔴 Low — needs attention today'}
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header"><div className="card-title">Click to add / remove protein sources</div></div>
+      <div className="card" style={{marginBottom:14}}>
+        <div className="card-header"><div className="card-title">Click to add / remove protein sources for {name}</div></div>
         <div style={{padding:14, display:'flex', flexWrap:'wrap', gap:8}}>
           {SOURCES.map(s => {
             const added = logs.some(l => l.food_name === s.name);
@@ -1747,12 +1759,24 @@ function ProteinTracker({ profile }) {
         </div>
       </div>
 
-      <div className="card" style={{marginTop:14}}>
-        <div className="card-header"><div className="card-title">Best sources for Maxi — at a glance</div></div>
+      <div className="card">
+        <div className="card-header"><div className="card-title">Protein reference — quick guide</div></div>
         <table className="table">
           <thead><tr><th>Food</th><th>Serving</th><th>Protein</th><th>~Cost</th></tr></thead>
           <tbody>
-            {[['🌿 Hemp seeds','3 tbsp','10g','~$0.30'],['🫘 Tempeh','100g','19g','~$0.80'],['🥚 Eggs ×2','2 large','12g','~$0.55'],['🫘 Firm tofu','150g','15g','~$0.60'],['🟤 Red lentils','150g cooked','13g','~$0.20'],['🫘 Chickpeas','150g cooked','11g','~$0.15'],['🟢 Edamame','100g','11g','~$0.40'],['🥛 Skyr','150g','17g','~$0.40']].map(([f,s,p,c])=>(
+            {[
+              ['🌿 Hemp seeds','3 tbsp','10g','~$0.30'],
+              ['🫘 Tempeh','100g','19g','~$0.80'],
+              ['🥚 Eggs ×2','2 large','12g','~$0.55'],
+              ['🫘 Firm tofu','150g','15g','~$0.60'],
+              ['🟤 Red lentils','150g cooked','13g','~$0.20'],
+              ['🫘 Chickpeas','150g cooked','11g','~$0.15'],
+              ['🟢 Edamame','100g','11g','~$0.40'],
+              ['🥛 Skyr','150g','17g','~$0.40'],
+              ['🍗 Chicken thigh','150g','28g','~$1.20'],
+              ['🐟 Salmon','150g','30g','~$2.50'],
+              ['🥩 Beef','150g','31g','~$1.80'],
+            ].map(([f,s,p,c])=>(
               <tr key={f}><td>{f}</td><td style={{color:'var(--mid)'}}>{s}</td><td style={{color:'var(--sage)',fontFamily:'IBM Plex Mono,monospace',fontWeight:600}}>{p}</td><td style={{color:'var(--mid)'}}>{c}</td></tr>
             ))}
           </tbody>
