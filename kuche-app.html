@@ -227,6 +227,7 @@ function App() {
     { id: 'budget', label: 'Budget' },
     { id: 'protein', label: 'Maxi Protein' },
     { id: 'ferments', label: 'Ferments' },
+    { id: 'instructions', label: 'Instructions' },
   ];
 
   return (
@@ -258,6 +259,7 @@ function App() {
         {tab==='budget' && <Budget profile={profile} />}
         {tab==='protein' && <ProteinTracker profile={profile} />}
         {tab==='ferments' && <Ferments profile={profile} />}
+        {tab==='instructions' && <Instructions profile={profile} />}
       </div>
     </div>
   );
@@ -1842,6 +1844,132 @@ function Ferments({ profile }) {
           }
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── INSTRUCTIONS ──
+function Instructions({ profile }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [catFilter, setCatFilter] = useState('all');
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => { fetchInstructions(); }, []);
+
+  async function fetchInstructions() {
+    setLoading(true);
+    const { data } = await supabase.from('instructions').select('*').order('sort_order');
+    setItems(data || []);
+    if (data?.length) setSelected(data[0]);
+    setLoading(false);
+  }
+
+  const CAT_ICONS = { bread: '🍞', ferments: '🫙', techniques: '🔪', other: '📖' };
+  const CAT_LABELS = { bread: 'Bread', ferments: 'Ferments', techniques: 'Techniques', other: 'Other' };
+
+  const filtered = catFilter === 'all' ? items : items.filter(i => i.category === catFilter);
+  const cats = [...new Set(items.map(i => i.category))];
+
+  return (
+    <div>
+      <h1 className="page-title">Instructions</h1>
+      <p className="page-sub">Bread baking, ferments, and techniques — all stored in your database. Select any guide to read the full step-by-step.</p>
+
+      <div className="tabs" style={{marginBottom: 16}}>
+        <button className={`tab-btn ${catFilter==='all'?'active':''}`} onClick={()=>setCatFilter('all')}>All</button>
+        {cats.map(c => (
+          <button key={c} className={`tab-btn ${catFilter===c?'active':''}`} onClick={()=>setCatFilter(c)}>
+            {CAT_ICONS[c]} {CAT_LABELS[c]}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <div className="loading">Loading instructions…</div> : (
+        <div style={{display:'grid', gridTemplateColumns:'280px 1fr', gap:16}}>
+          {/* Sidebar */}
+          <div>
+            {filtered.map(item => (
+              <div key={item.id} onClick={()=>setSelected(item)} style={{
+                background: selected?.id===item.id ? 'var(--ink)' : 'var(--card)',
+                color: selected?.id===item.id ? 'white' : 'var(--ink)',
+                border: `1px solid ${selected?.id===item.id ? 'var(--ink)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', padding:'12px 14px', marginBottom:8,
+                cursor:'pointer', transition:'all 0.15s'
+              }}>
+                <div style={{fontWeight:600, fontSize:14}}>{CAT_ICONS[item.category]} {item.title}</div>
+                <div style={{fontSize:12, opacity:0.7, marginTop:3}}>{item.subtitle}</div>
+                {item.metadata && (
+                  <div style={{display:'flex', gap:8, marginTop:6, flexWrap:'wrap'}}>
+                    {item.metadata.total_time && <span style={{fontSize:10, background:'rgba(255,255,255,0.15)', padding:'1px 6px', borderRadius:10, fontFamily:'IBM Plex Mono,monospace'}}>⏱ {item.metadata.total_time}</span>}
+                    {item.metadata.hydration && <span style={{fontSize:10, background:'rgba(255,255,255,0.15)', padding:'1px 6px', borderRadius:10, fontFamily:'IBM Plex Mono,monospace'}}>{item.metadata.hydration}</span>}
+                    {item.metadata.keeps && <span style={{fontSize:10, background:'rgba(255,255,255,0.15)', padding:'1px 6px', borderRadius:10, fontFamily:'IBM Plex Mono,monospace'}}>Keeps {item.metadata.keeps}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Detail */}
+          {selected ? (
+            <div className="card">
+              <div style={{background:'var(--ink)', color:'white', padding:'20px 24px', borderRadius:'var(--radius) var(--radius) 0 0'}}>
+                <div style={{fontSize:12, fontFamily:'IBM Plex Mono,monospace', opacity:0.6, textTransform:'uppercase', letterSpacing:1, marginBottom:6}}>{CAT_ICONS[selected.category]} {CAT_LABELS[selected.category]}</div>
+                <div style={{fontFamily:'Lora,serif', fontSize:24, marginBottom:4}}>{selected.title}</div>
+                <div style={{fontSize:13, opacity:0.75}}>{selected.subtitle}</div>
+                {selected.metadata && (
+                  <div style={{display:'flex', gap:16, marginTop:14, flexWrap:'wrap'}}>
+                    {Object.entries(selected.metadata).map(([k,v]) => (
+                      <div key={k}>
+                        <div style={{fontSize:10, textTransform:'uppercase', letterSpacing:1, opacity:0.5, fontFamily:'IBM Plex Mono,monospace'}}>{k.replace(/_/g,' ')}</div>
+                        <div style={{fontSize:13, fontWeight:600}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{padding:'20px 24px'}}>
+                {selected.intro && <p style={{fontSize:14, color:'var(--mid)', lineHeight:1.7, marginBottom:20, borderLeft:'3px solid var(--sage)', paddingLeft:14}}>{selected.intro}</p>}
+
+                {/* Steps */}
+                {selected.steps?.length > 0 && (
+                  <div style={{marginBottom:24}}>
+                    <div style={{fontWeight:700, fontSize:13, textTransform:'uppercase', letterSpacing:1, color:'var(--mid)', fontFamily:'IBM Plex Mono,monospace', marginBottom:12}}>Steps</div>
+                    {selected.steps.map((step, i) => (
+                      <div key={i} style={{display:'flex', gap:14, padding:'14px 0', borderBottom:'1px solid var(--bg)', alignItems:'start'}}>
+                        <div style={{width:28, height:28, borderRadius:'50%', background:'var(--sage)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0}}>{step.num}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:600, fontSize:14, marginBottom:5}}>{step.title}</div>
+                          <div style={{fontSize:13, color:'var(--mid)', lineHeight:1.7}}>{step.desc}</div>
+                          {step.timer && (
+                            <div style={{marginTop:8, display:'inline-flex', alignItems:'center', gap:6, background:'var(--blue-bg)', color:'var(--blue)', padding:'3px 10px', borderRadius:20, fontSize:12, fontFamily:'IBM Plex Mono,monospace'}}>
+                              ⏱ {step.timer}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tips */}
+                {selected.tips?.length > 0 && (
+                  <div>
+                    <div style={{fontWeight:700, fontSize:13, textTransform:'uppercase', letterSpacing:1, color:'var(--mid)', fontFamily:'IBM Plex Mono,monospace', marginBottom:12}}>💡 Key Tips</div>
+                    {selected.tips.map((t, i) => (
+                      <div key={i} style={{background:'var(--gold-bg)', borderRadius:8, padding:'10px 14px', marginBottom:8, fontSize:13, color:'var(--ink)', lineHeight:1.6}}>
+                        {t.tip}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state"><div className="empty-state-icon">📖</div>Select an instruction from the left</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
