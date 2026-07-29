@@ -214,7 +214,7 @@ function App() {
     setLoading(false);
   }
 
-  if (loading) return <div className="loading">⏳ Loading Küche…</div>;
+  if (loading) return <div className="loading">⏳ Loading Yayami…</div>;
   if (!session) return <LoginScreen />;
 
   const TABS = [
@@ -233,7 +233,7 @@ function App() {
   return (
     <div>
       <div className="topbar">
-        <div className="topbar-logo">Küche<span>·</span>Corvallis</div>
+        <div className="topbar-logo">Yayami</div>
         <div className="topbar-right">
           <div className="unit-toggle">
             <button className={`unit-btn ${unitPref==='metric'?'active':''}`} onClick={()=>setUnitPref('metric')}>g/ml</button>
@@ -299,7 +299,7 @@ function LoginScreen() {
     <div className="login-screen">
       <div className="login-card">
         <div style={{fontSize:32, marginBottom:8}}>🍞</div>
-        <div className="login-title">Küche · Corvallis</div>
+        <div className="login-title">Yayami</div>
         <div className="login-sub">Your household kitchen manager</div>
         {msg && <div className="alert-box alert-info" style={{marginBottom:12}}>{msg}</div>}
         <form onSubmit={mode==='login'?handleLogin:handleSignup}>
