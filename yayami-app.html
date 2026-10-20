@@ -224,6 +224,7 @@ function App() {
     { id: 'pantry', label: 'Pantry' },
     { id: 'fridge', label: 'Fridge' },
     { id: 'shopping', label: 'Shopping' },
+    { id: 'receipts', label: 'Receipts' },
     { id: 'budget', label: 'Budget' },
     { id: 'protein', label: 'Nutrition' },
     { id: 'ferments', label: 'Ferments' },
@@ -256,6 +257,7 @@ function App() {
         {tab==='pantry' && <Pantry profile={profile} unitPref={unitPref} />}
         {tab==='fridge' && <Fridge profile={profile} />}
         {tab==='shopping' && <Shopping profile={profile} unitPref={unitPref} />}
+        {tab==='receipts' && <Receipts profile={profile} />}
         {tab==='budget' && <Budget profile={profile} />}
         {tab==='protein' && <ProteinTracker profile={profile} />}
         {tab==='ferments' && <Ferments profile={profile} />}
@@ -736,7 +738,7 @@ const text = textBlock?.text || '';
             {parsed.ingredients?.length > 0 && (
               <div style={{marginBottom:12}}>
                 <div className="form-label" style={{marginBottom:6}}>Parsed Ingredients ({parsed.ingredients.length})</div>
-                <div style={{background:'var(--bg)', borderRadius:8, padding:10, maxHeight:150, overflowY:'auto', fontSize:12, lineHeight:1.8}}>
+                <div style={{background:'var(--bg)', borderRadius:8, padding:10, maxHeight:220, overflowY:'auto', fontSize:12, lineHeight:1.8}}>
                   {parsed.ingredients.map((ing, i) => (
                     <div key={i}>
                       <span className={`track-badge track-${ing.track}`}>{ing.track}</span>{' '}
@@ -1278,6 +1280,288 @@ function AddFridgeModal({ onClose, onSaved }) {
 }
 
 // ── SHOPPING ──
+// ── ONE-TAP SCANNER ──
+// Live camera inside Yayami. Every tap on the big button = one captured item.
+// The photo is read in the background; the camera stays open for the next item.
+function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [camError, setCamError] = useState(null);
+  const [results, setResults] = useState([]); // {key, status:'reading'|'done'|'error'|'undone', text, undo}
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
+        });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        try { const tr = stream.getVideoTracks()[0]; const caps = tr.getCapabilities ? tr.getCapabilities() : {};
+          if (caps.focusMode && caps.focusMode.includes('continuous')) await tr.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play().catch(()=>{}); }
+      } catch (e) {
+        setCamError(e && e.name === 'NotAllowedError'
+          ? 'Camera access was not allowed. Allow it in Safari (aA menu → Website Settings → Camera) and try again.'
+          : 'The camera could not be started on this device.');
+      }
+    })();
+    return () => { cancelled = true; streamRef.current && streamRef.current.getTracks().forEach(t => t.stop()); };
+  }, []);
+
+  // Sharpness of a frame: variance of a simple Laplacian on a small grayscale copy.
+  function sharpness(canvas) {
+    const w = 240, h = Math.max(1, Math.round(canvas.height * 240 / canvas.width));
+    const t = document.createElement('canvas'); t.width = w; t.height = h;
+    const ctx = t.getContext('2d'); ctx.drawImage(canvas, 0, 0, w, h);
+    const d = ctx.getImageData(0, 0, w, h).data;
+    const g = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) g[i] = 0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2];
+    let sum = 0, sum2 = 0, n = 0;
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const l = 4 * g[i] - g[i-1] - g[i+1] - g[i-w] - g[i+w];
+      sum += l; sum2 += l * l; n++;
+    }
+    return n ? sum2 / n - (sum / n) ** 2 : 0;
+  }
+
+  function frameCanvas() {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return null;
+    const max = 1568;
+    const scale = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(v.videoWidth * scale); c.height = Math.round(v.videoHeight * scale);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    return c;
+  }
+
+  // Takes 5 frames over ~0.6 s after the tap and keeps the sharpest one,
+  // so the shake from pressing the button doesn't ruin the picture.
+  async function grabSharpFrame() {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    let best = null, bestScore = -1;
+    for (let k = 0; k < 5; k++) {
+      await wait(k === 0 ? 120 : 120);
+      const c = frameCanvas();
+      if (!c) continue;
+      const sc = sharpness(c);
+      if (sc > bestScore) { best = c; bestScore = sc; }
+    }
+    return best ? best.toDataURL('image/jpeg', 0.8).split(',')[1] : null;
+  }
+
+  function update(key, patch) { setResults(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r)); }
+
+  async function capture() {
+    const key = Date.now() + Math.random();
+    setResults(rs => [{ key, status: 'reading', text: 'Hold still…' }, ...rs].slice(0, 6));
+    const image = await grabSharpFrame();
+    if (!image) { update(key, { status: 'error', text: '✗ Camera not ready yet.' }); return; }
+    setFlash(true); setTimeout(() => setFlash(false), 120);
+    if (navigator.vibrate) navigator.vibrate(30);
+    update(key, { text: 'Reading…' });
+    const open = items.filter(i => !i.is_checked);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/scan-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${s.session.access_token}` },
+        body: JSON.stringify({ image, list: open.map(i => i.name), stores: (stores||[]).map(x => x.name) })
+      });
+      const r = await resp.json();
+      if (r.kind === 'receipt') { await saveReceipt(key, r, open, image); return; }
+      if (r.kind === 'unreadable' || !resp.ok || !r.name) {
+        update(key, { status: 'error', text: '✗ ' + (r.reason || 'Could not read that one.') + ' Try again.' }); return;
+      }
+      const label = [r.brand, r.details, r.name, r.size].filter(Boolean).join(' ');
+      const priceTxt = r.price != null ? ` — $${r.price.toFixed(2)}` : ' — no price seen';
+      const match = r.match_index != null ? open[r.match_index] : null;
+      let budgetId = null;
+      if (r.price != null) {
+        const { data: b } = await supabase.from('budget_entries').insert([{ amount: r.price, category: match?.category || 'Other', is_food: match ? match.is_food : true, store_id: storeId || match?.store_id || null, notes: label + ' (scan)' }]).select('id').single();
+        budgetId = b?.id || null;
+      }
+      let undo;
+      if (match) {
+        await supabase.from('shopping_items').update({ is_checked: true, price_paid: r.price }).eq('id', match.id);
+        undo = async () => {
+          await supabase.from('shopping_items').update({ is_checked: false, price_paid: null }).eq('id', match.id);
+          if (budgetId) await supabase.from('budget_entries').delete().eq('id', budgetId);
+        };
+        update(key, { status: 'done', text: `✓ ${match.name} checked off${priceTxt}`, undo });
+      } else {
+        const { data: ins } = await supabase.from('shopping_items').insert([{ name: label, category: 'Other', store_id: storeId || null, is_food: true, is_checked: true, price_paid: r.price, source: 'scan', save_to_library: false, notes: 'Added by scan' }]).select('id').single();
+        undo = async () => {
+          if (ins?.id) await supabase.from('shopping_items').delete().eq('id', ins.id);
+          if (budgetId) await supabase.from('budget_entries').delete().eq('id', budgetId);
+        };
+        update(key, { status: 'done', text: `+ ${label}${priceTxt}`, undo });
+      }
+      onChanged();
+    } catch (e) {
+      update(key, { status: 'error', text: '✗ Could not read that one. Try again, a bit closer.' });
+    }
+  }
+
+  // A whole receipt: saved as a receipt with every line in detail (brand, variant,
+  // size, quantity/weight, unit price, discount), plus one Budget line per product.
+  // Products that were on the shopping list get checked off with their real price.
+  function itemLabel(it) {
+    return [it.brand, it.details, it.product || it.printed].filter(Boolean).join(' ');
+  }
+  function itemAmount(it) {
+    const parts = [];
+    if (it.quantity_unit && it.quantity_unit !== 'each') parts.push(`${it.quantity} ${it.quantity_unit}`);
+    else if (it.quantity && it.quantity !== 1) parts.push(`${it.quantity} ×`);
+    if (it.package_size) parts.push(`${it.package_size} ${it.package_unit || ''}`.trim());
+    if (it.unit_price && it.quantity_unit && it.quantity_unit !== 'each') parts.push(`@ ${it.unit_price.toFixed(2)}/${it.quantity_unit}`);
+    return parts.join(' ');
+  }
+
+  // Shopping-list matching for receipt lines, done on the phone (no AI cost):
+  // every meaningful word of the list entry must appear in the decoded product.
+  function findListMatch(it, open, used) {
+    const hay = ' ' + [it.brand, it.details, it.product, it.printed].filter(Boolean).join(' ').toLowerCase() + ' ';
+    return open.find(o => {
+      if (used.has(o.id)) return false;
+      const words = o.name.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+      return words.length && words.every(w => hay.includes(w));
+    }) || null;
+  }
+
+  async function saveReceipt(key, r, open, image) {
+    const money = v => (r.currency && r.currency !== 'USD') ? `${v.toFixed(2)} ${r.currency}` : `$${v.toFixed(2)}`;
+    let st = r.store_index != null ? stores[r.store_index] : null;
+    // A store Yayami doesn't know yet (another town, state or country): create it automatically.
+    if (!st && r.store_name) {
+      const nice = r.store_name.replace(/\s+/g, ' ').trim();
+      const { data: ns } = await supabase.from('stores').insert([{ name: nice + (r.city ? ` (${r.city})` : ''), type: 'supermarket', chain: r.chain,
+        address: r.address, city: r.city, region: r.region, country: r.country, currency: r.currency || 'USD' }]).select('*').single();
+      if (ns) st = ns;
+    }
+    const sid = st?.id || storeId || null;
+    const used = new Set();
+    r.items.forEach(it => { const m = findListMatch(it, open, used); if (m) { used.add(m.id); it.match = m; } });
+    const date = r.date || new Date().toISOString().slice(0, 10);
+    const sum = r.items.reduce((a, it) => a + it.price, 0) + (r.tax > 0 ? r.tax : 0);
+    const total = r.total ?? sum;
+    const off = r.total != null && Math.abs(sum - r.total) > 0.05;
+    const where = st?.name || r.store_name || 'Receipt';
+
+    // Already scanned? Same store, same date, same total.
+    let dupQ = supabase.from('receipts').select('id').eq('purchase_date', date).eq('total', total);
+    dupQ = sid ? dupQ.eq('store_id', sid) : dupQ.is('store_id', null);
+    const { data: dups } = await dupQ;
+    if (dups && dups.length) {
+      update(key, { status: 'error', text: `🧾 This receipt (${where}, ${date}, ${money(total)}) is already saved. Nothing was added.` });
+      return;
+    }
+
+    const { data: rec, error: recErr } = await supabase.from('receipts').insert([{
+      store_id: sid, store_name_printed: r.store_name, purchase_date: date, purchase_time: r.time,
+      subtotal: r.subtotal, tax: r.tax, total, currency: r.currency || 'USD', item_count: r.items.length, sum_matches_total: r.total != null ? !off : null
+    }]).select('id').single();
+    if (recErr || !rec) { update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return; }
+
+    const lines = r.items.map((it, i) => {
+      const match = it.match || null;
+      return { receipt_id: rec.id, line_no: i + 1, printed_text: it.printed, product: it.product, brand: it.brand, details: it.details,
+        package_size: it.package_size, package_unit: it.package_unit, quantity: it.quantity, quantity_unit: it.quantity_unit,
+        unit_price: it.unit_price, discount: it.discount, price: it.price, shopping_item_id: match?.id || null, item_code: it.item_code, from_dictionary: !!it.from_dictionary, category: it.category || null };
+    });
+    const budget = r.items.map(it => {
+      const match = it.match || null;
+      const amt = itemAmount(it);
+      return { receipt_id: rec.id, entry_date: date, amount: it.price, category: it.category || match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, currency: r.currency || 'USD', notes: itemLabel(it) + (amt ? ` (${amt})` : '') };
+    });
+    if (r.tax && r.tax > 0) budget.push({ receipt_id: rec.id, entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, currency: r.currency || 'USD', notes: 'Sales tax' });
+    const [li, bu] = await Promise.all([
+      supabase.from('receipt_items').insert(lines),
+      supabase.from('budget_entries').insert(budget)
+    ]);
+    if (li.error || bu.error) {
+      await supabase.from('receipts').delete().eq('id', rec.id);
+      update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return;
+    }
+
+    // Keep the photo of the receipt (private storage, about 0.3 MB each)
+    let photoPath = null;
+    if (image) {
+      try {
+        const bin = atob(image); const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        photoPath = `${date.slice(0, 7)}/${rec.id}.jpg`;
+        const { error: upErr } = await supabase.storage.from('receipts').upload(photoPath, new Blob([bytes], { type: 'image/jpeg' }), { contentType: 'image/jpeg' });
+        if (upErr) photoPath = null; else await supabase.from('receipts').update({ photo_path: photoPath }).eq('id', rec.id);
+      } catch (e) { photoPath = null; }
+    }
+
+    const checked = [];
+    for (const it of r.items) {
+      const match = it.match || null;
+      if (match && !checked.find(c => c.id === match.id)) {
+        await supabase.from('shopping_items').update({ is_checked: true, price_paid: it.price }).eq('id', match.id);
+        checked.push(match);
+      }
+    }
+    const undo = async () => {
+      await supabase.from('receipts').delete().eq('id', rec.id); // removes its lines and Budget entries too
+      if (photoPath) await supabase.storage.from('receipts').remove([photoPath]);
+      for (const c of checked) await supabase.from('shopping_items').update({ is_checked: false, price_paid: null }).eq('id', c.id);
+    };
+    update(key, {
+      status: 'done', undo,
+      text: `🧾 ${where}${r.date ? ', ' + r.date : ''}: ${r.items.length} items, ${money(total)}` + (checked.length ? ` · ${checked.length} checked off the list` : '') + (r.learned && r.learned.from_dictionary ? ` · ${r.learned.from_dictionary} of ${r.items.length} lines known already` : ''),
+      warn: off ? `Items add up to ${money(sum)}, but the receipt says ${money(r.total)}. Something was misread.` : null,
+      details: r.items.map(it => {
+        const amt = itemAmount(it);
+        return `${it.from_dictionary ? '📚 ' : ''}${itemLabel(it)}${amt ? ' · ' + amt : ''} — ${money(it.price)}${it.discount ? ` (saved ${money(it.discount)})` : ''}`;
+      })
+    });
+    onChanged();
+  }
+
+  async function doUndo(r) {
+    update(r.key, { status: 'undone', text: 'Undone' });
+    try { await r.undo(); } catch (e) {}
+    onChanged();
+  }
+
+  return (
+    <div style={{position:'fixed', inset:0, background:'#000', zIndex:1000, display:'flex', flexDirection:'column'}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 16px', color:'white', paddingTop:'max(14px, env(safe-area-inset-top))'}}>
+        <div style={{fontSize:15, fontWeight:600}}>{storeName ? `Scanning at ${storeName}` : 'Scan items'}</div>
+        <button onClick={onClose} style={{background:'rgba(255,255,255,0.18)', color:'white', border:'none', borderRadius:20, padding:'8px 16px', fontSize:15, fontWeight:600}}>Done</button>
+      </div>
+      <div style={{flex:1, position:'relative', overflow:'hidden'}}>
+        {camError
+          ? <div style={{color:'white', padding:24, fontSize:16, lineHeight:1.5}}>{camError}</div>
+          : <video ref={videoRef} playsInline muted autoPlay style={{width:'100%', height:'100%', objectFit:'cover'}} />}
+        {flash && <div style={{position:'absolute', inset:0, background:'white', opacity:0.6}} />}
+        <div style={{position:'absolute', left:12, right:12, bottom:12, display:'flex', flexDirection:'column', gap:6}}>
+          {results.map(r => (
+            <div key={r.key} style={{background: r.status==='error' ? 'rgba(192,57,43,0.92)' : 'rgba(0,0,0,0.72)', color:'white', borderRadius:10, padding:'10px 12px', fontSize:15, display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, opacity: r.status==='undone' ? 0.5 : 1}}>
+              <span>{r.text}
+                {r.warn && <div style={{color:'#FFD27A', fontSize:13, marginTop:4}}>⚠ {r.warn}</div>}
+                {r.details && r.status==='done' && <div style={{fontSize:13, opacity:0.85, marginTop:6, maxHeight:150, overflowY:'auto', lineHeight:1.45}}>{r.details.map((d,i)=><div key={i}>{d}</div>)}</div>}
+              </span>
+              {r.status==='done' && r.undo && <button onClick={()=>doUndo(r)} style={{background:'white', color:'#000', border:'none', borderRadius:8, padding:'6px 12px', fontWeight:600, fontSize:14, flexShrink:0}}>Undo</button>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{display:'flex', justifyContent:'center', padding:'22px 0', paddingBottom:'max(22px, env(safe-area-inset-bottom))'}}>
+        <button aria-label="Capture item" onClick={capture} disabled={!!camError}
+          style={{width:84, height:84, borderRadius:'50%', background:'white', border:'6px solid rgba(255,255,255,0.35)', backgroundClip:'padding-box', boxShadow:'0 0 0 2px white'}} />
+      </div>
+    </div>
+  );
+}
+
 function Shopping({ profile, unitPref }) {
   const [items, setItems] = useState([]);
   const [stores, setStores] = useState([]);
@@ -1286,6 +1570,7 @@ function Shopping({ profile, unitPref }) {
   const [storeFilter, setStoreFilter] = useState('all');
   const [showAdd, setShowAdd] = useState(false);
   const [priceModal, setPriceModal] = useState(null);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -1371,6 +1656,7 @@ function Shopping({ profile, unitPref }) {
       <p className="page-sub">Auto-generated from pantry thresholds. Log prices as you shop to track budget.</p>
       <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
         {canEdit && <>
+          <button className="btn btn-primary" onClick={()=>setScanning(true)} style={{fontSize:16, padding:'12px 20px', width:'100%', justifyContent:'center'}}>📷 Scan items</button>
           <button className="btn btn-primary" onClick={generateFromPantry}>↻ Add Low Stock Items</button>
           <button className="btn btn-secondary" onClick={()=>setShowAdd(true)}>+ Add Item</button>
           <button className="btn btn-secondary" onClick={clearChecked}>Clear Checked</button>
@@ -1427,6 +1713,7 @@ function Shopping({ profile, unitPref }) {
       }
 
       {showAdd && <AddShopItemModal stores={stores} onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchAll();showToast('✓ Added to list');}} />}
+      {scanning && (() => { const st = stores.find(x => x.name === storeFilter); return <Scanner items={items} stores={stores} storeId={st?.id} storeName={st?.name} onClose={()=>{setScanning(false);fetchAll();}} onChanged={fetchAll} />; })()}
       {priceModal && <PriceModal item={priceModal} onConfirm={(price)=>confirmCheck(priceModal, price)} onSkip={()=>confirmCheck(priceModal, null)} onClose={()=>setPriceModal(null)} />}
     </div>
   );
@@ -1526,6 +1813,175 @@ function AddShopItemModal({ stores, onClose, onSaved }) {
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── RECEIPTS ── every scanned receipt, with photo, searchable by date, store, place, item and category
+function Receipts({ profile }) {
+  const [receipts, setReceipts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+  const [period, setPeriod] = useState('all'); // all | day | week | month
+  const [day, setDay] = useState(new Date().toISOString().slice(0, 10));
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [store, setStore] = useState('');
+  const [country, setCountry] = useState('');
+  const [category, setCategory] = useState('');
+  const [openId, setOpenId] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState({});
+
+  useEffect(() => { load(); }, []);
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase.from('receipts')
+      .select('*, stores(name, city, region, country), receipt_items(*)')
+      .order('purchase_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000);
+    setReceipts(data || []);
+    setLoading(false);
+  }
+
+  async function toggle(r) {
+    if (openId === r.id) { setOpenId(null); return; }
+    setOpenId(r.id);
+    if (r.photo_path && !photoUrl[r.id]) {
+      const { data } = await supabase.storage.from('receipts').createSignedUrl(r.photo_path, 3600);
+      if (data?.signedUrl) setPhotoUrl(p => ({ ...p, [r.id]: data.signedUrl }));
+    }
+  }
+
+  const money = (v, cur) => v == null ? '–' : (cur && cur !== 'USD') ? `${Number(v).toFixed(2)} ${cur}` : `$${Number(v).toFixed(2)}`;
+  const place = r => [r.stores?.city, r.stores?.region, r.stores?.country].filter(Boolean).join(', ');
+  const label = it => [it.brand, it.details, it.product || it.printed_text].filter(Boolean).join(' ');
+  const amount = it => {
+    const p = [];
+    if (it.quantity_unit && it.quantity_unit !== 'each') p.push(`${it.quantity} ${it.quantity_unit}`);
+    else if (it.quantity && Number(it.quantity) !== 1) p.push(`${it.quantity} ×`);
+    if (it.package_size) p.push(`${it.package_size} ${it.package_unit || ''}`.trim());
+    return p.join(' ');
+  };
+
+  // Week = Monday to Sunday around the chosen day
+  function inPeriod(d) {
+    if (period === 'all') return true;
+    if (!d) return false;
+    if (period === 'day') return d === day;
+    if (period === 'month') return d.slice(0, 7) === month;
+    const base = new Date(day + 'T12:00:00');
+    const mon = new Date(base); mon.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    const iso = x => x.toISOString().slice(0, 10);
+    return d >= iso(mon) && d <= iso(sun);
+  }
+
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const itemHit = it => {
+    if (category && it.category !== category) return false;
+    if (!words.length) return true;
+    const hay = [it.product, it.brand, it.details, it.printed_text, it.category].filter(Boolean).join(' ').toLowerCase();
+    return words.every(w => hay.includes(w));
+  };
+  const filtered = receipts.map(r => {
+    if (!inPeriod(r.purchase_date)) return null;
+    if (store && r.stores?.name !== store) return null;
+    if (country && r.stores?.country !== country) return null;
+    const head = [r.stores?.name, r.store_name_printed, r.stores?.city, r.stores?.region, r.stores?.country].filter(Boolean).join(' ').toLowerCase();
+    const headHit = words.length && words.every(w => head.includes(w));
+    const hits = (r.receipt_items || []).filter(itemHit);
+    if (category && !hits.length) return null;
+    if (words.length && !headHit && !hits.length) return null;
+    return { ...r, hits: (words.length && !headHit) || category ? hits : null };
+  }).filter(Boolean);
+
+  const totals = filtered.reduce((acc, r) => {
+    const cur = r.currency || 'USD';
+    const v = r.hits ? r.hits.reduce((a, it) => a + Number(it.price), 0) : Number(r.total || 0);
+    acc[cur] = (acc[cur] || 0) + v; return acc;
+  }, {});
+  const storeNames = [...new Set(receipts.map(r => r.stores?.name).filter(Boolean))].sort();
+  const countries = [...new Set(receipts.map(r => r.stores?.country).filter(Boolean))].sort();
+  const categories = [...new Set(receipts.flatMap(r => (r.receipt_items || []).map(it => it.category)).filter(Boolean))].sort();
+  const big = { fontSize: 15 };
+
+  return (
+    <div>
+      <h1 className="page-title">Receipts</h1>
+      <p className="page-sub">Every scanned receipt with its photo. Search by item, brand, store, city or country, and filter by date and category.</p>
+
+      <div className="card" style={{marginBottom:14}}>
+        <div className="card-body" style={{display:'flex', flexDirection:'column', gap:10}}>
+          <input className="input" style={big} placeholder="Search: e.g. milk, Tillamook, organic, Fred Meyer, Bend, DE …" value={q} onChange={e=>setQ(e.target.value)} />
+          <div className="tabs" style={{marginBottom:0}}>
+            {[['all','All dates'],['day','Day'],['week','Week'],['month','Month']].map(([k,l]) =>
+              <button key={k} className={`tab-btn ${period===k?'active':''}`} onClick={()=>setPeriod(k)}>{l}</button>)}
+          </div>
+          {(period === 'day' || period === 'week') && <input className="input" style={big} type="date" value={day} onChange={e=>setDay(e.target.value)} />}
+          {period === 'month' && <input className="input" style={big} type="month" value={month} onChange={e=>setMonth(e.target.value)} />}
+          <div className="grid-3">
+            <select className="input" style={big} value={store} onChange={e=>setStore(e.target.value)}>
+              <option value="">All stores</option>{storeNames.map(s => <option key={s}>{s}</option>)}
+            </select>
+            <select className="input" style={big} value={category} onChange={e=>setCategory(e.target.value)}>
+              <option value="">All categories</option>{categories.map(c => <option key={c}>{c}</option>)}
+            </select>
+            <select className="input" style={big} value={country} onChange={e=>setCountry(e.target.value)}>
+              <option value="">All countries</option>{countries.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {!loading && <div style={{fontSize:15, marginBottom:10, color:'var(--ink2)'}}>
+        <b>{filtered.length}</b> receipt{filtered.length === 1 ? '' : 's'}
+        {Object.keys(totals).length > 0 && <> · {Object.entries(totals).map(([cur, v]) => money(v, cur)).join(' + ')}</>}
+        {(words.length > 0 || category) && <span style={{color:'var(--mid)'}}> (matching items only)</span>}
+      </div>}
+
+      {loading ? <div className="loading">Loading…</div> :
+        filtered.length === 0 ? <div className="empty-state"><div className="empty-state-icon">🧾</div>No receipts found</div> :
+        filtered.map(r => (
+          <div key={r.id} className="card" style={{marginBottom:10}}>
+            <div onClick={()=>toggle(r)} style={{padding:'12px 16px', cursor:'pointer', display:'grid', gridTemplateColumns:'1fr auto', gap:8, alignItems:'center'}}>
+              <div>
+                <div style={{fontSize:16, fontWeight:600}}>{r.stores?.name || r.store_name_printed || 'Unknown store'}</div>
+                <div style={{fontSize:13, color:'var(--mid)', fontFamily:'IBM Plex Mono,monospace'}}>
+                  {r.purchase_date}{r.purchase_time ? ' ' + r.purchase_time : ''}{place(r) ? ' · ' + place(r) : ''} · {r.item_count} items{r.photo_path ? ' · 📷' : ''}
+                </div>
+                {r.hits && <div style={{fontSize:14, marginTop:4, color:'var(--sage-dark)'}}>{r.hits.map(label).join(' · ')}</div>}
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:17, fontWeight:600, fontFamily:'IBM Plex Mono,monospace'}}>{money(r.total, r.currency)}</div>
+                {r.sum_matches_total === false && <div style={{fontSize:12, color:'var(--gold)'}}>⚠ check</div>}
+              </div>
+            </div>
+            {openId === r.id && (
+              <div style={{borderTop:'1px solid var(--border)'}}>
+                {(r.receipt_items || []).sort((a,b)=>(a.line_no||0)-(b.line_no||0)).map(it => (
+                  <div key={it.id} style={{display:'grid', gridTemplateColumns:'1fr auto', gap:10, padding:'10px 16px', borderBottom:'1px solid #000', background: r.hits && r.hits.find(h=>h.id===it.id) ? 'var(--sage-bg)' : 'transparent'}}>
+                    <div>
+                      <div style={{fontSize:15, fontWeight:600}}>{label(it)}</div>
+                      <div style={{fontSize:13, color:'var(--mid)'}}>
+                        {[amount(it), it.unit_price && it.quantity_unit !== 'each' ? `@ ${Number(it.unit_price).toFixed(2)}/${it.quantity_unit}` : null, it.category, it.printed_text ? `“${it.printed_text}”` : null].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right', fontFamily:'IBM Plex Mono,monospace', fontSize:15}}>
+                      {money(it.price, r.currency)}
+                      {it.discount ? <div style={{fontSize:12, color:'var(--sage)'}}>saved {money(it.discount, r.currency)}</div> : null}
+                    </div>
+                  </div>
+                ))}
+                <div style={{padding:'10px 16px', fontSize:14, display:'flex', gap:16, flexWrap:'wrap', fontFamily:'IBM Plex Mono,monospace'}}>
+                  {r.subtotal != null && <span>Subtotal {money(r.subtotal, r.currency)}</span>}
+                  {r.tax != null && <span>Tax {money(r.tax, r.currency)}</span>}
+                  <span><b>Total {money(r.total, r.currency)}</b></span>
+                </div>
+                {r.photo_path && (photoUrl[r.id]
+                  ? <a href={photoUrl[r.id]} target="_blank" rel="noopener"><img src={photoUrl[r.id]} alt="Receipt photo" style={{width:'100%', display:'block'}} /></a>
+                  : <div className="loading">Loading photo…</div>)}
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 }
