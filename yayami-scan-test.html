@@ -736,7 +736,7 @@ const text = textBlock?.text || '';
             {parsed.ingredients?.length > 0 && (
               <div style={{marginBottom:12}}>
                 <div className="form-label" style={{marginBottom:6}}>Parsed Ingredients ({parsed.ingredients.length})</div>
-                <div style={{background:'var(--bg)', borderRadius:8, padding:10, maxHeight:150, overflowY:'auto', fontSize:12, lineHeight:1.8}}>
+                <div style={{background:'var(--bg)', borderRadius:8, padding:10, maxHeight:220, overflowY:'auto', fontSize:12, lineHeight:1.8}}>
                   {parsed.ingredients.map((ing, i) => (
                     <div key={i}>
                       <span className={`track-badge track-${ing.track}`}>{ing.track}</span>{' '}
@@ -1375,7 +1375,7 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
       if (r.kind === 'unreadable' || !resp.ok || !r.name) {
         update(key, { status: 'error', text: '✗ ' + (r.reason || 'Could not read that one.') + ' Try again.' }); return;
       }
-      const label = [r.brand, r.name, r.size].filter(Boolean).join(' ');
+      const label = [r.brand, r.details, r.name, r.size].filter(Boolean).join(' ');
       const priceTxt = r.price != null ? ` — $${r.price.toFixed(2)}` : ' — no price seen';
       const match = r.match_index != null ? open[r.match_index] : null;
       let budgetId = null;
@@ -1405,19 +1405,66 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     }
   }
 
-  // A whole receipt: one budget line per product (dated, with store), and every
-  // product that was on the shopping list gets checked off with its real price.
+  // A whole receipt: saved as a receipt with every line in detail (brand, variant,
+  // size, quantity/weight, unit price, discount), plus one Budget line per product.
+  // Products that were on the shopping list get checked off with their real price.
+  function itemLabel(it) {
+    return [it.brand, it.details, it.product || it.printed].filter(Boolean).join(' ');
+  }
+  function itemAmount(it) {
+    const parts = [];
+    if (it.quantity_unit && it.quantity_unit !== 'each') parts.push(`${it.quantity} ${it.quantity_unit}`);
+    else if (it.quantity && it.quantity !== 1) parts.push(`${it.quantity} ×`);
+    if (it.package_size) parts.push(`${it.package_size} ${it.package_unit || ''}`.trim());
+    if (it.unit_price && it.quantity_unit && it.quantity_unit !== 'each') parts.push(`@ $${it.unit_price.toFixed(2)}/${it.quantity_unit}`);
+    return parts.join(' ');
+  }
+
   async function saveReceipt(key, r, open) {
     const st = r.store_index != null ? stores[r.store_index] : null;
     const sid = st?.id || storeId || null;
     const date = r.date || new Date().toISOString().slice(0, 10);
-    const rows = r.items.map(it => {
+    const sum = r.items.reduce((a, it) => a + it.price, 0) + (r.tax > 0 ? r.tax : 0);
+    const total = r.total ?? sum;
+    const off = r.total != null && Math.abs(sum - r.total) > 0.05;
+    const where = st?.name || r.store_name || 'Receipt';
+
+    // Already scanned? Same store, same date, same total.
+    let dupQ = supabase.from('receipts').select('id').eq('purchase_date', date).eq('total', total);
+    dupQ = sid ? dupQ.eq('store_id', sid) : dupQ.is('store_id', null);
+    const { data: dups } = await dupQ;
+    if (dups && dups.length) {
+      update(key, { status: 'error', text: `🧾 This receipt (${where}, ${date}, $${total.toFixed(2)}) is already saved. Nothing was added.` });
+      return;
+    }
+
+    const { data: rec, error: recErr } = await supabase.from('receipts').insert([{
+      store_id: sid, store_name_printed: r.store_name, purchase_date: date, purchase_time: r.time,
+      subtotal: r.subtotal, tax: r.tax, total, item_count: r.items.length, sum_matches_total: r.total != null ? !off : null
+    }]).select('id').single();
+    if (recErr || !rec) { update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return; }
+
+    const lines = r.items.map((it, i) => {
       const match = it.match_index != null ? open[it.match_index] : null;
-      return { entry_date: date, amount: it.price, category: match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, notes: it.name + (it.qty && it.qty !== 1 ? ` (${it.qty})` : '') + ' (receipt)' };
+      return { receipt_id: rec.id, line_no: i + 1, printed_text: it.printed, product: it.product, brand: it.brand, details: it.details,
+        package_size: it.package_size, package_unit: it.package_unit, quantity: it.quantity, quantity_unit: it.quantity_unit,
+        unit_price: it.unit_price, discount: it.discount, price: it.price, shopping_item_id: match?.id || null };
     });
-    if (r.tax && r.tax > 0) rows.push({ entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, notes: 'Sales tax (receipt)' });
-    const { data: ins, error } = await supabase.from('budget_entries').insert(rows).select('id');
-    if (error) { update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return; }
+    const budget = r.items.map(it => {
+      const match = it.match_index != null ? open[it.match_index] : null;
+      const amt = itemAmount(it);
+      return { receipt_id: rec.id, entry_date: date, amount: it.price, category: match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, notes: itemLabel(it) + (amt ? ` (${amt})` : '') };
+    });
+    if (r.tax && r.tax > 0) budget.push({ receipt_id: rec.id, entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, notes: 'Sales tax' });
+    const [li, bu] = await Promise.all([
+      supabase.from('receipt_items').insert(lines),
+      supabase.from('budget_entries').insert(budget)
+    ]);
+    if (li.error || bu.error) {
+      await supabase.from('receipts').delete().eq('id', rec.id);
+      update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return;
+    }
+
     const checked = [];
     for (const it of r.items) {
       const match = it.match_index != null ? open[it.match_index] : null;
@@ -1426,20 +1473,18 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
         checked.push(match);
       }
     }
-    const sum = r.items.reduce((a, it) => a + it.price, 0) + (r.tax > 0 ? r.tax : 0);
-    const total = r.total ?? sum;
-    const off = r.total != null && Math.abs(sum - r.total) > 0.05;
     const undo = async () => {
-      const ids = (ins || []).map(x => x.id);
-      if (ids.length) await supabase.from('budget_entries').delete().in('id', ids);
+      await supabase.from('receipts').delete().eq('id', rec.id); // removes its lines and Budget entries too
       for (const c of checked) await supabase.from('shopping_items').update({ is_checked: false, price_paid: null }).eq('id', c.id);
     };
-    const where = st?.name || r.store_name || 'Receipt';
     update(key, {
       status: 'done', undo,
       text: `🧾 ${where}${r.date ? ', ' + r.date : ''}: ${r.items.length} items, $${total.toFixed(2)}` + (checked.length ? ` · ${checked.length} checked off the list` : ''),
       warn: off ? `Items add up to $${sum.toFixed(2)}, but the receipt says $${r.total.toFixed(2)}. Something was misread.` : null,
-      details: r.items.map(it => `${it.name}${it.qty && it.qty !== 1 ? ' ×' + it.qty : ''} — $${it.price.toFixed(2)}`)
+      details: r.items.map(it => {
+        const amt = itemAmount(it);
+        return `${itemLabel(it)}${amt ? ' · ' + amt : ''} — $${it.price.toFixed(2)}${it.discount ? ` (saved $${it.discount.toFixed(2)})` : ''}`;
+      })
     });
     onChanged();
   }
