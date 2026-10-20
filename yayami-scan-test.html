@@ -1416,13 +1416,34 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     if (it.quantity_unit && it.quantity_unit !== 'each') parts.push(`${it.quantity} ${it.quantity_unit}`);
     else if (it.quantity && it.quantity !== 1) parts.push(`${it.quantity} ×`);
     if (it.package_size) parts.push(`${it.package_size} ${it.package_unit || ''}`.trim());
-    if (it.unit_price && it.quantity_unit && it.quantity_unit !== 'each') parts.push(`@ $${it.unit_price.toFixed(2)}/${it.quantity_unit}`);
+    if (it.unit_price && it.quantity_unit && it.quantity_unit !== 'each') parts.push(`@ ${it.unit_price.toFixed(2)}/${it.quantity_unit}`);
     return parts.join(' ');
   }
 
+  // Shopping-list matching for receipt lines, done on the phone (no AI cost):
+  // every meaningful word of the list entry must appear in the decoded product.
+  function findListMatch(it, open, used) {
+    const hay = ' ' + [it.brand, it.details, it.product, it.printed].filter(Boolean).join(' ').toLowerCase() + ' ';
+    return open.find(o => {
+      if (used.has(o.id)) return false;
+      const words = o.name.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+      return words.length && words.every(w => hay.includes(w));
+    }) || null;
+  }
+
   async function saveReceipt(key, r, open) {
-    const st = r.store_index != null ? stores[r.store_index] : null;
+    const money = v => (r.currency && r.currency !== 'USD') ? `${v.toFixed(2)} ${r.currency}` : `$${v.toFixed(2)}`;
+    let st = r.store_index != null ? stores[r.store_index] : null;
+    // A store Yayami doesn't know yet (another town, state or country): create it automatically.
+    if (!st && r.store_name) {
+      const nice = r.store_name.replace(/\s+/g, ' ').trim();
+      const { data: ns } = await supabase.from('stores').insert([{ name: nice + (r.city ? ` (${r.city})` : ''), type: 'supermarket', chain: r.chain,
+        address: r.address, city: r.city, region: r.region, country: r.country, currency: r.currency || 'USD' }]).select('*').single();
+      if (ns) st = ns;
+    }
     const sid = st?.id || storeId || null;
+    const used = new Set();
+    r.items.forEach(it => { const m = findListMatch(it, open, used); if (m) { used.add(m.id); it.match = m; } });
     const date = r.date || new Date().toISOString().slice(0, 10);
     const sum = r.items.reduce((a, it) => a + it.price, 0) + (r.tax > 0 ? r.tax : 0);
     const total = r.total ?? sum;
@@ -1434,28 +1455,28 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     dupQ = sid ? dupQ.eq('store_id', sid) : dupQ.is('store_id', null);
     const { data: dups } = await dupQ;
     if (dups && dups.length) {
-      update(key, { status: 'error', text: `🧾 This receipt (${where}, ${date}, $${total.toFixed(2)}) is already saved. Nothing was added.` });
+      update(key, { status: 'error', text: `🧾 This receipt (${where}, ${date}, ${money(total)}) is already saved. Nothing was added.` });
       return;
     }
 
     const { data: rec, error: recErr } = await supabase.from('receipts').insert([{
       store_id: sid, store_name_printed: r.store_name, purchase_date: date, purchase_time: r.time,
-      subtotal: r.subtotal, tax: r.tax, total, item_count: r.items.length, sum_matches_total: r.total != null ? !off : null
+      subtotal: r.subtotal, tax: r.tax, total, currency: r.currency || 'USD', item_count: r.items.length, sum_matches_total: r.total != null ? !off : null
     }]).select('id').single();
     if (recErr || !rec) { update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return; }
 
     const lines = r.items.map((it, i) => {
-      const match = it.match_index != null ? open[it.match_index] : null;
+      const match = it.match || null;
       return { receipt_id: rec.id, line_no: i + 1, printed_text: it.printed, product: it.product, brand: it.brand, details: it.details,
         package_size: it.package_size, package_unit: it.package_unit, quantity: it.quantity, quantity_unit: it.quantity_unit,
-        unit_price: it.unit_price, discount: it.discount, price: it.price, shopping_item_id: match?.id || null };
+        unit_price: it.unit_price, discount: it.discount, price: it.price, shopping_item_id: match?.id || null, item_code: it.item_code, from_dictionary: !!it.from_dictionary };
     });
     const budget = r.items.map(it => {
-      const match = it.match_index != null ? open[it.match_index] : null;
+      const match = it.match || null;
       const amt = itemAmount(it);
-      return { receipt_id: rec.id, entry_date: date, amount: it.price, category: match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, notes: itemLabel(it) + (amt ? ` (${amt})` : '') };
+      return { receipt_id: rec.id, entry_date: date, amount: it.price, category: match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, currency: r.currency || 'USD', notes: itemLabel(it) + (amt ? ` (${amt})` : '') };
     });
-    if (r.tax && r.tax > 0) budget.push({ receipt_id: rec.id, entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, notes: 'Sales tax' });
+    if (r.tax && r.tax > 0) budget.push({ receipt_id: rec.id, entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, currency: r.currency || 'USD', notes: 'Sales tax' });
     const [li, bu] = await Promise.all([
       supabase.from('receipt_items').insert(lines),
       supabase.from('budget_entries').insert(budget)
@@ -1467,7 +1488,7 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
 
     const checked = [];
     for (const it of r.items) {
-      const match = it.match_index != null ? open[it.match_index] : null;
+      const match = it.match || null;
       if (match && !checked.find(c => c.id === match.id)) {
         await supabase.from('shopping_items').update({ is_checked: true, price_paid: it.price }).eq('id', match.id);
         checked.push(match);
@@ -1479,11 +1500,11 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     };
     update(key, {
       status: 'done', undo,
-      text: `🧾 ${where}${r.date ? ', ' + r.date : ''}: ${r.items.length} items, $${total.toFixed(2)}` + (checked.length ? ` · ${checked.length} checked off the list` : ''),
-      warn: off ? `Items add up to $${sum.toFixed(2)}, but the receipt says $${r.total.toFixed(2)}. Something was misread.` : null,
+      text: `🧾 ${where}${r.date ? ', ' + r.date : ''}: ${r.items.length} items, ${money(total)}` + (checked.length ? ` · ${checked.length} checked off the list` : '') + (r.learned && r.learned.from_dictionary ? ` · ${r.learned.from_dictionary} of ${r.items.length} lines known already` : ''),
+      warn: off ? `Items add up to ${money(sum)}, but the receipt says ${money(r.total)}. Something was misread.` : null,
       details: r.items.map(it => {
         const amt = itemAmount(it);
-        return `${itemLabel(it)}${amt ? ' · ' + amt : ''} — $${it.price.toFixed(2)}${it.discount ? ` (saved $${it.discount.toFixed(2)})` : ''}`;
+        return `${it.from_dictionary ? '📚 ' : ''}${itemLabel(it)}${amt ? ' · ' + amt : ''} — ${money(it.price)}${it.discount ? ` (saved ${money(it.discount)})` : ''}`;
       })
     });
     onChanged();
