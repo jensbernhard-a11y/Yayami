@@ -144,6 +144,8 @@ const { useState, useEffect, useCallback, useRef } = React;
 // ── SUPABASE ──
 const SUPABASE_URL = 'https://rjglnszletpogjzvxzuk.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqZ2xuc3psZXRwb2dqenZ4enVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMTg0NDAsImV4cCI6MjA5NTg5NDQ0MH0.qQu1XHN04cf6mJq5LguTu0RMgtSYpM4kf6If2LFFNuQ';
+// Must be read BEFORE the client starts: the password-reset link arrives as #...type=recovery
+const ARRIVED_FROM_RESET_LINK = /type=recovery/.test(window.location.hash) || /type=recovery/.test(window.location.search);
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ── CLAUDE API ──
@@ -180,7 +182,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('dashboard');
   const [unitPref, setUnitPref] = useState('metric');
-  const [recovering, setRecovering] = useState(false);
+  const [recovering, setRecovering] = useState(ARRIVED_FROM_RESET_LINK);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
