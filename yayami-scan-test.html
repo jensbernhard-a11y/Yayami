@@ -224,6 +224,7 @@ function App() {
     { id: 'pantry', label: 'Pantry' },
     { id: 'fridge', label: 'Fridge' },
     { id: 'shopping', label: 'Shopping' },
+    { id: 'receipts', label: 'Receipts' },
     { id: 'budget', label: 'Budget' },
     { id: 'protein', label: 'Nutrition' },
     { id: 'ferments', label: 'Ferments' },
@@ -256,6 +257,7 @@ function App() {
         {tab==='pantry' && <Pantry profile={profile} unitPref={unitPref} />}
         {tab==='fridge' && <Fridge profile={profile} />}
         {tab==='shopping' && <Shopping profile={profile} unitPref={unitPref} />}
+        {tab==='receipts' && <Receipts profile={profile} />}
         {tab==='budget' && <Budget profile={profile} />}
         {tab==='protein' && <ProteinTracker profile={profile} />}
         {tab==='ferments' && <Ferments profile={profile} />}
@@ -1371,7 +1373,7 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
         body: JSON.stringify({ image, list: open.map(i => i.name), stores: (stores||[]).map(x => x.name) })
       });
       const r = await resp.json();
-      if (r.kind === 'receipt') { await saveReceipt(key, r, open); return; }
+      if (r.kind === 'receipt') { await saveReceipt(key, r, open, image); return; }
       if (r.kind === 'unreadable' || !resp.ok || !r.name) {
         update(key, { status: 'error', text: '✗ ' + (r.reason || 'Could not read that one.') + ' Try again.' }); return;
       }
@@ -1431,7 +1433,7 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     }) || null;
   }
 
-  async function saveReceipt(key, r, open) {
+  async function saveReceipt(key, r, open, image) {
     const money = v => (r.currency && r.currency !== 'USD') ? `${v.toFixed(2)} ${r.currency}` : `$${v.toFixed(2)}`;
     let st = r.store_index != null ? stores[r.store_index] : null;
     // A store Yayami doesn't know yet (another town, state or country): create it automatically.
@@ -1469,12 +1471,12 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
       const match = it.match || null;
       return { receipt_id: rec.id, line_no: i + 1, printed_text: it.printed, product: it.product, brand: it.brand, details: it.details,
         package_size: it.package_size, package_unit: it.package_unit, quantity: it.quantity, quantity_unit: it.quantity_unit,
-        unit_price: it.unit_price, discount: it.discount, price: it.price, shopping_item_id: match?.id || null, item_code: it.item_code, from_dictionary: !!it.from_dictionary };
+        unit_price: it.unit_price, discount: it.discount, price: it.price, shopping_item_id: match?.id || null, item_code: it.item_code, from_dictionary: !!it.from_dictionary, category: it.category || null };
     });
     const budget = r.items.map(it => {
       const match = it.match || null;
       const amt = itemAmount(it);
-      return { receipt_id: rec.id, entry_date: date, amount: it.price, category: match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, currency: r.currency || 'USD', notes: itemLabel(it) + (amt ? ` (${amt})` : '') };
+      return { receipt_id: rec.id, entry_date: date, amount: it.price, category: it.category || match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, currency: r.currency || 'USD', notes: itemLabel(it) + (amt ? ` (${amt})` : '') };
     });
     if (r.tax && r.tax > 0) budget.push({ receipt_id: rec.id, entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, currency: r.currency || 'USD', notes: 'Sales tax' });
     const [li, bu] = await Promise.all([
@@ -1484,6 +1486,18 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     if (li.error || bu.error) {
       await supabase.from('receipts').delete().eq('id', rec.id);
       update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return;
+    }
+
+    // Keep the photo of the receipt (private storage, about 0.3 MB each)
+    let photoPath = null;
+    if (image) {
+      try {
+        const bin = atob(image); const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        photoPath = `${date.slice(0, 7)}/${rec.id}.jpg`;
+        const { error: upErr } = await supabase.storage.from('receipts').upload(photoPath, new Blob([bytes], { type: 'image/jpeg' }), { contentType: 'image/jpeg' });
+        if (upErr) photoPath = null; else await supabase.from('receipts').update({ photo_path: photoPath }).eq('id', rec.id);
+      } catch (e) { photoPath = null; }
     }
 
     const checked = [];
@@ -1496,6 +1510,7 @@ function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
     }
     const undo = async () => {
       await supabase.from('receipts').delete().eq('id', rec.id); // removes its lines and Budget entries too
+      if (photoPath) await supabase.storage.from('receipts').remove([photoPath]);
       for (const c of checked) await supabase.from('shopping_items').update({ is_checked: false, price_paid: null }).eq('id', c.id);
     };
     update(key, {
@@ -1798,6 +1813,175 @@ function AddShopItemModal({ stores, onClose, onSaved }) {
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── RECEIPTS ── every scanned receipt, with photo, searchable by date, store, place, item and category
+function Receipts({ profile }) {
+  const [receipts, setReceipts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+  const [period, setPeriod] = useState('all'); // all | day | week | month
+  const [day, setDay] = useState(new Date().toISOString().slice(0, 10));
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [store, setStore] = useState('');
+  const [country, setCountry] = useState('');
+  const [category, setCategory] = useState('');
+  const [openId, setOpenId] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState({});
+
+  useEffect(() => { load(); }, []);
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase.from('receipts')
+      .select('*, stores(name, city, region, country), receipt_items(*)')
+      .order('purchase_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000);
+    setReceipts(data || []);
+    setLoading(false);
+  }
+
+  async function toggle(r) {
+    if (openId === r.id) { setOpenId(null); return; }
+    setOpenId(r.id);
+    if (r.photo_path && !photoUrl[r.id]) {
+      const { data } = await supabase.storage.from('receipts').createSignedUrl(r.photo_path, 3600);
+      if (data?.signedUrl) setPhotoUrl(p => ({ ...p, [r.id]: data.signedUrl }));
+    }
+  }
+
+  const money = (v, cur) => v == null ? '–' : (cur && cur !== 'USD') ? `${Number(v).toFixed(2)} ${cur}` : `$${Number(v).toFixed(2)}`;
+  const place = r => [r.stores?.city, r.stores?.region, r.stores?.country].filter(Boolean).join(', ');
+  const label = it => [it.brand, it.details, it.product || it.printed_text].filter(Boolean).join(' ');
+  const amount = it => {
+    const p = [];
+    if (it.quantity_unit && it.quantity_unit !== 'each') p.push(`${it.quantity} ${it.quantity_unit}`);
+    else if (it.quantity && Number(it.quantity) !== 1) p.push(`${it.quantity} ×`);
+    if (it.package_size) p.push(`${it.package_size} ${it.package_unit || ''}`.trim());
+    return p.join(' ');
+  };
+
+  // Week = Monday to Sunday around the chosen day
+  function inPeriod(d) {
+    if (period === 'all') return true;
+    if (!d) return false;
+    if (period === 'day') return d === day;
+    if (period === 'month') return d.slice(0, 7) === month;
+    const base = new Date(day + 'T12:00:00');
+    const mon = new Date(base); mon.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    const iso = x => x.toISOString().slice(0, 10);
+    return d >= iso(mon) && d <= iso(sun);
+  }
+
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const itemHit = it => {
+    if (category && it.category !== category) return false;
+    if (!words.length) return true;
+    const hay = [it.product, it.brand, it.details, it.printed_text, it.category].filter(Boolean).join(' ').toLowerCase();
+    return words.every(w => hay.includes(w));
+  };
+  const filtered = receipts.map(r => {
+    if (!inPeriod(r.purchase_date)) return null;
+    if (store && r.stores?.name !== store) return null;
+    if (country && r.stores?.country !== country) return null;
+    const head = [r.stores?.name, r.store_name_printed, r.stores?.city, r.stores?.region, r.stores?.country].filter(Boolean).join(' ').toLowerCase();
+    const headHit = words.length && words.every(w => head.includes(w));
+    const hits = (r.receipt_items || []).filter(itemHit);
+    if (category && !hits.length) return null;
+    if (words.length && !headHit && !hits.length) return null;
+    return { ...r, hits: (words.length && !headHit) || category ? hits : null };
+  }).filter(Boolean);
+
+  const totals = filtered.reduce((acc, r) => {
+    const cur = r.currency || 'USD';
+    const v = r.hits ? r.hits.reduce((a, it) => a + Number(it.price), 0) : Number(r.total || 0);
+    acc[cur] = (acc[cur] || 0) + v; return acc;
+  }, {});
+  const storeNames = [...new Set(receipts.map(r => r.stores?.name).filter(Boolean))].sort();
+  const countries = [...new Set(receipts.map(r => r.stores?.country).filter(Boolean))].sort();
+  const categories = [...new Set(receipts.flatMap(r => (r.receipt_items || []).map(it => it.category)).filter(Boolean))].sort();
+  const big = { fontSize: 15 };
+
+  return (
+    <div>
+      <h1 className="page-title">Receipts</h1>
+      <p className="page-sub">Every scanned receipt with its photo. Search by item, brand, store, city or country, and filter by date and category.</p>
+
+      <div className="card" style={{marginBottom:14}}>
+        <div className="card-body" style={{display:'flex', flexDirection:'column', gap:10}}>
+          <input className="input" style={big} placeholder="Search: e.g. milk, Tillamook, organic, Fred Meyer, Bend, DE …" value={q} onChange={e=>setQ(e.target.value)} />
+          <div className="tabs" style={{marginBottom:0}}>
+            {[['all','All dates'],['day','Day'],['week','Week'],['month','Month']].map(([k,l]) =>
+              <button key={k} className={`tab-btn ${period===k?'active':''}`} onClick={()=>setPeriod(k)}>{l}</button>)}
+          </div>
+          {(period === 'day' || period === 'week') && <input className="input" style={big} type="date" value={day} onChange={e=>setDay(e.target.value)} />}
+          {period === 'month' && <input className="input" style={big} type="month" value={month} onChange={e=>setMonth(e.target.value)} />}
+          <div className="grid-3">
+            <select className="input" style={big} value={store} onChange={e=>setStore(e.target.value)}>
+              <option value="">All stores</option>{storeNames.map(s => <option key={s}>{s}</option>)}
+            </select>
+            <select className="input" style={big} value={category} onChange={e=>setCategory(e.target.value)}>
+              <option value="">All categories</option>{categories.map(c => <option key={c}>{c}</option>)}
+            </select>
+            <select className="input" style={big} value={country} onChange={e=>setCountry(e.target.value)}>
+              <option value="">All countries</option>{countries.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {!loading && <div style={{fontSize:15, marginBottom:10, color:'var(--ink2)'}}>
+        <b>{filtered.length}</b> receipt{filtered.length === 1 ? '' : 's'}
+        {Object.keys(totals).length > 0 && <> · {Object.entries(totals).map(([cur, v]) => money(v, cur)).join(' + ')}</>}
+        {(words.length > 0 || category) && <span style={{color:'var(--mid)'}}> (matching items only)</span>}
+      </div>}
+
+      {loading ? <div className="loading">Loading…</div> :
+        filtered.length === 0 ? <div className="empty-state"><div className="empty-state-icon">🧾</div>No receipts found</div> :
+        filtered.map(r => (
+          <div key={r.id} className="card" style={{marginBottom:10}}>
+            <div onClick={()=>toggle(r)} style={{padding:'12px 16px', cursor:'pointer', display:'grid', gridTemplateColumns:'1fr auto', gap:8, alignItems:'center'}}>
+              <div>
+                <div style={{fontSize:16, fontWeight:600}}>{r.stores?.name || r.store_name_printed || 'Unknown store'}</div>
+                <div style={{fontSize:13, color:'var(--mid)', fontFamily:'IBM Plex Mono,monospace'}}>
+                  {r.purchase_date}{r.purchase_time ? ' ' + r.purchase_time : ''}{place(r) ? ' · ' + place(r) : ''} · {r.item_count} items{r.photo_path ? ' · 📷' : ''}
+                </div>
+                {r.hits && <div style={{fontSize:14, marginTop:4, color:'var(--sage-dark)'}}>{r.hits.map(label).join(' · ')}</div>}
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:17, fontWeight:600, fontFamily:'IBM Plex Mono,monospace'}}>{money(r.total, r.currency)}</div>
+                {r.sum_matches_total === false && <div style={{fontSize:12, color:'var(--gold)'}}>⚠ check</div>}
+              </div>
+            </div>
+            {openId === r.id && (
+              <div style={{borderTop:'1px solid var(--border)'}}>
+                {(r.receipt_items || []).sort((a,b)=>(a.line_no||0)-(b.line_no||0)).map(it => (
+                  <div key={it.id} style={{display:'grid', gridTemplateColumns:'1fr auto', gap:10, padding:'10px 16px', borderBottom:'1px solid #000', background: r.hits && r.hits.find(h=>h.id===it.id) ? 'var(--sage-bg)' : 'transparent'}}>
+                    <div>
+                      <div style={{fontSize:15, fontWeight:600}}>{label(it)}</div>
+                      <div style={{fontSize:13, color:'var(--mid)'}}>
+                        {[amount(it), it.unit_price && it.quantity_unit !== 'each' ? `@ ${Number(it.unit_price).toFixed(2)}/${it.quantity_unit}` : null, it.category, it.printed_text ? `“${it.printed_text}”` : null].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right', fontFamily:'IBM Plex Mono,monospace', fontSize:15}}>
+                      {money(it.price, r.currency)}
+                      {it.discount ? <div style={{fontSize:12, color:'var(--sage)'}}>saved {money(it.discount, r.currency)}</div> : null}
+                    </div>
+                  </div>
+                ))}
+                <div style={{padding:'10px 16px', fontSize:14, display:'flex', gap:16, flexWrap:'wrap', fontFamily:'IBM Plex Mono,monospace'}}>
+                  {r.subtotal != null && <span>Subtotal {money(r.subtotal, r.currency)}</span>}
+                  {r.tax != null && <span>Tax {money(r.tax, r.currency)}</span>}
+                  <span><b>Total {money(r.total, r.currency)}</b></span>
+                </div>
+                {r.photo_path && (photoUrl[r.id]
+                  ? <a href={photoUrl[r.id]} target="_blank" rel="noopener"><img src={photoUrl[r.id]} alt="Receipt photo" style={{width:'100%', display:'block'}} /></a>
+                  : <div className="loading">Loading photo…</div>)}
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 }
