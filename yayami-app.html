@@ -2050,6 +2050,14 @@ function Budget({ profile }) {
     setLoading(false);
   }
 
+  async function removeEntry(e) {
+    if (!window.confirm(`Delete this Budget entry?\n\n${e.notes || e.category}\n${e.entry_date} · $${parseFloat(e.amount).toFixed(2)}`)) return;
+    const { error } = await supabase.from('budget_entries').delete().eq('id', e.id);
+    if (error) { showToast('Could not delete: ' + error.message); return; }
+    setEntries(list => list.filter(x => x.id !== e.id));
+    showToast('✓ Entry deleted');
+  }
+
   const totalMonth = entries.reduce((a, e) => a + parseFloat(e.amount), 0);
   const target = parseFloat(config.monthly_target);
   const pct = Math.min(100, (totalMonth / target) * 100);
@@ -2105,15 +2113,18 @@ function Budget({ profile }) {
         </div>
         <div className="card">
           <div className="card-header"><div className="card-title">Recent Entries</div></div>
-          <div className="card-body" style={{maxHeight:300, overflowY:'auto'}}>
+          <div className="card-body" style={{maxHeight:520, overflowY:'auto'}}>
             {loading ? <div className="loading">Loading…</div> :
-              entries.slice(0, 20).map(e => (
-                <div key={e.id} style={{display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--bg)', fontSize:12}}>
+              entries.map(e => (
+                <div key={e.id} style={{display:'grid', gridTemplateColumns:'1fr auto auto', gap:10, alignItems:'center', padding:'8px 0', borderBottom:'1px solid #000', fontSize:14}}>
                   <div>
-                    <div style={{fontWeight:500}}>{e.notes || e.category}</div>
-                    <div style={{color:'var(--mid)'}}>{e.entry_date} · {e.stores?.name}</div>
+                    <div style={{fontWeight:500}}>{e.receipt_id ? '🧾 ' : ''}{e.notes || e.category}</div>
+                    <div style={{color:'var(--mid)', fontSize:12}}>{e.entry_date} · {e.stores?.name || 'no store'}</div>
                   </div>
                   <strong style={{fontFamily:'IBM Plex Mono,monospace', color:'var(--terra)'}}>${parseFloat(e.amount).toFixed(2)}</strong>
+                  {profile?.role !== 'guest'
+                    ? <button aria-label="Delete entry" onClick={()=>removeEntry(e)} style={{border:'1px solid var(--border)', background:'var(--card)', borderRadius:8, padding:'6px 10px', fontSize:15, cursor:'pointer'}}>🗑</button>
+                    : <span />}
                 </div>
               ))
             }
