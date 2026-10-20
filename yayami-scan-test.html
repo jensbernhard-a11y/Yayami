@@ -1281,7 +1281,7 @@ function AddFridgeModal({ onClose, onSaved }) {
 // ── ONE-TAP SCANNER ──
 // Live camera inside Yayami. Every tap on the big button = one captured item.
 // The photo is read in the background; the camera stays open for the next item.
-function Scanner({ items, storeId, storeName, onClose, onChanged }) {
+function Scanner({ items, stores, storeId, storeName, onClose, onChanged }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [camError, setCamError] = useState(null);
@@ -1368,10 +1368,10 @@ function Scanner({ items, storeId, storeName, onClose, onChanged }) {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/scan-item`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${s.session.access_token}` },
-        body: JSON.stringify({ image, list: open.map(i => i.name) })
+        body: JSON.stringify({ image, list: open.map(i => i.name), stores: (stores||[]).map(x => x.name) })
       });
       const r = await resp.json();
-      if (r.kind === 'receipt') { update(key, { status: 'error', text: '🧾 That\'s a receipt. Receipt scanning is the next feature; for now, scan single items.' }); return; }
+      if (r.kind === 'receipt') { await saveReceipt(key, r, open); return; }
       if (r.kind === 'unreadable' || !resp.ok || !r.name) {
         update(key, { status: 'error', text: '✗ ' + (r.reason || 'Could not read that one.') + ' Try again.' }); return;
       }
@@ -1405,6 +1405,45 @@ function Scanner({ items, storeId, storeName, onClose, onChanged }) {
     }
   }
 
+  // A whole receipt: one budget line per product (dated, with store), and every
+  // product that was on the shopping list gets checked off with its real price.
+  async function saveReceipt(key, r, open) {
+    const st = r.store_index != null ? stores[r.store_index] : null;
+    const sid = st?.id || storeId || null;
+    const date = r.date || new Date().toISOString().slice(0, 10);
+    const rows = r.items.map(it => {
+      const match = it.match_index != null ? open[it.match_index] : null;
+      return { entry_date: date, amount: it.price, category: match?.category || 'Groceries', is_food: match ? match.is_food : true, store_id: sid, notes: it.name + (it.qty && it.qty !== 1 ? ` (${it.qty})` : '') + ' (receipt)' };
+    });
+    if (r.tax && r.tax > 0) rows.push({ entry_date: date, amount: r.tax, category: 'Tax', is_food: false, store_id: sid, notes: 'Sales tax (receipt)' });
+    const { data: ins, error } = await supabase.from('budget_entries').insert(rows).select('id');
+    if (error) { update(key, { status: 'error', text: '✗ Could not save the receipt. Try again.' }); return; }
+    const checked = [];
+    for (const it of r.items) {
+      const match = it.match_index != null ? open[it.match_index] : null;
+      if (match && !checked.find(c => c.id === match.id)) {
+        await supabase.from('shopping_items').update({ is_checked: true, price_paid: it.price }).eq('id', match.id);
+        checked.push(match);
+      }
+    }
+    const sum = r.items.reduce((a, it) => a + it.price, 0) + (r.tax > 0 ? r.tax : 0);
+    const total = r.total ?? sum;
+    const off = r.total != null && Math.abs(sum - r.total) > 0.05;
+    const undo = async () => {
+      const ids = (ins || []).map(x => x.id);
+      if (ids.length) await supabase.from('budget_entries').delete().in('id', ids);
+      for (const c of checked) await supabase.from('shopping_items').update({ is_checked: false, price_paid: null }).eq('id', c.id);
+    };
+    const where = st?.name || r.store_name || 'Receipt';
+    update(key, {
+      status: 'done', undo,
+      text: `🧾 ${where}${r.date ? ', ' + r.date : ''}: ${r.items.length} items, $${total.toFixed(2)}` + (checked.length ? ` · ${checked.length} checked off the list` : ''),
+      warn: off ? `Items add up to $${sum.toFixed(2)}, but the receipt says $${r.total.toFixed(2)}. Something was misread.` : null,
+      details: r.items.map(it => `${it.name}${it.qty && it.qty !== 1 ? ' ×' + it.qty : ''} — $${it.price.toFixed(2)}`)
+    });
+    onChanged();
+  }
+
   async function doUndo(r) {
     update(r.key, { status: 'undone', text: 'Undone' });
     try { await r.undo(); } catch (e) {}
@@ -1425,7 +1464,10 @@ function Scanner({ items, storeId, storeName, onClose, onChanged }) {
         <div style={{position:'absolute', left:12, right:12, bottom:12, display:'flex', flexDirection:'column', gap:6}}>
           {results.map(r => (
             <div key={r.key} style={{background: r.status==='error' ? 'rgba(192,57,43,0.92)' : 'rgba(0,0,0,0.72)', color:'white', borderRadius:10, padding:'10px 12px', fontSize:15, display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, opacity: r.status==='undone' ? 0.5 : 1}}>
-              <span>{r.text}</span>
+              <span>{r.text}
+                {r.warn && <div style={{color:'#FFD27A', fontSize:13, marginTop:4}}>⚠ {r.warn}</div>}
+                {r.details && r.status==='done' && <div style={{fontSize:13, opacity:0.85, marginTop:6, maxHeight:150, overflowY:'auto', lineHeight:1.45}}>{r.details.map((d,i)=><div key={i}>{d}</div>)}</div>}
+              </span>
               {r.status==='done' && r.undo && <button onClick={()=>doUndo(r)} style={{background:'white', color:'#000', border:'none', borderRadius:8, padding:'6px 12px', fontWeight:600, fontSize:14, flexShrink:0}}>Undo</button>}
             </div>
           ))}
@@ -1590,7 +1632,7 @@ function Shopping({ profile, unitPref }) {
       }
 
       {showAdd && <AddShopItemModal stores={stores} onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);fetchAll();showToast('✓ Added to list');}} />}
-      {scanning && (() => { const st = stores.find(x => x.name === storeFilter); return <Scanner items={items} storeId={st?.id} storeName={st?.name} onClose={()=>{setScanning(false);fetchAll();}} onChanged={fetchAll} />; })()}
+      {scanning && (() => { const st = stores.find(x => x.name === storeFilter); return <Scanner items={items} stores={stores} storeId={st?.id} storeName={st?.name} onClose={()=>{setScanning(false);fetchAll();}} onChanged={fetchAll} />; })()}
       {priceModal && <PriceModal item={priceModal} onConfirm={(price)=>confirmCheck(priceModal, price)} onSkip={()=>confirmCheck(priceModal, null)} onClose={()=>setPriceModal(null)} />}
     </div>
   );
