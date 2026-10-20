@@ -180,6 +180,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('dashboard');
   const [unitPref, setUnitPref] = useState('metric');
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -188,6 +189,7 @@ function App() {
       else setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') setRecovering(true);
       setSession(session);
       if (session) fetchProfile(session.user.id);
       else { setProfile(null); setLoading(false); }
@@ -216,6 +218,7 @@ function App() {
 
   if (loading) return <div className="loading">⏳ Loading Yayami…</div>;
   if (!session) return <LoginScreen />;
+  if (recovering) return <NewPasswordScreen onDone={()=>setRecovering(false)} />;
 
   const TABS = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -268,6 +271,36 @@ function App() {
 }
 
 // ── LOGIN ──
+function NewPasswordScreen({ onDone }) {
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function save(e) {
+    e.preventDefault();
+    if (pw.length < 8) { setMsg('Please use at least 8 characters.'); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setMsg(error.message); else { showToast('✓ New password saved'); onDone(); }
+  }
+  return (
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="login-title">Set a new password</div>
+        {msg && <div className="alert-box alert-info" style={{marginBottom:12}}>{msg}</div>}
+        <form onSubmit={save}>
+          <input type="email" name="email" autoComplete="username" style={{display:'none'}} readOnly />
+          <div className="form-row">
+            <label className="form-label">New password</label>
+            <input className="input" style={{fontSize:16}} type="password" name="new-password" autoComplete="new-password" value={pw} onChange={e=>setPw(e.target.value)} required autoFocus />
+          </div>
+          <button className="btn btn-primary" style={{width:'100%', justifyContent:'center'}} disabled={busy}>{busy ? '...' : 'Save new password'}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -282,6 +315,14 @@ function LoginScreen() {
     setLoading(true); setMsg('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMsg(error.message);
+    setLoading(false);
+  }
+
+  async function handleForgot() {
+    if (!email) { setMsg('Type your email above first, then tap "Forgot password?" again.'); return; }
+    setLoading(true); setMsg('');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0].split('?')[0] });
+    setMsg(error ? error.message : 'Check your email: we sent you a link to set a new password. Open it on this phone.');
     setLoading(false);
   }
 
@@ -333,6 +374,7 @@ function LoginScreen() {
             {loading ? '...' : mode==='login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
+        {mode==='login' && <button className="btn btn-secondary" style={{width:'100%', justifyContent:'center', marginTop:10, fontSize:15}} onClick={handleForgot} disabled={loading}>Forgot password?</button>}
         <div className="section-divider" />
         <button className="btn btn-secondary" style={{width:'100%', justifyContent:'center'}} onClick={()=>setMode(mode==='login'?'signup':'login')}>
           {mode==='login' ? 'Create new account' : 'Back to sign in'}
